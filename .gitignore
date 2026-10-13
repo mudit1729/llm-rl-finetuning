@@ -1,0 +1,43 @@
+# Secrets: never commit keys
+.env
+.env.*
+*.key
+*.pem
+
+# Python / uv
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
+.pytest_cache/
+
+# Run outputs, checkpoints, logs (raw artifacts stay local; summaries live in results/*.md, *.csv, *.png)
+outputs/
+checkpoints/
+logs/
+wandb/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.distcp
+results/**/traces.jsonl
+results/**/raw/
+results/local/
+
+# Pulled-back artifacts from vast.ai instances
+artifacts/
+
+# vast.ai state written by scripts (instance id, ssh url)
+.vast/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Spend log stays on this machine
+COST.md
+
+# archify working folders (exported image lives in results/plots)
+.archify/

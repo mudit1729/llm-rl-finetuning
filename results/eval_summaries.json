@@ -1,0 +1,170 @@
+[
+ {
+  "model": "Qwen3-1.7B (base)",
+  "eval_run": "wordle-eval-base",
+  "games": 200,
+  "win_rate": 0.0,
+  "avg_reward": 0.1745,
+  "avg_turns": 3.33,
+  "turns_to_solve": NaN,
+  "guesses_to_solve": NaN,
+  "format_error_rate": 0.6186186186186187,
+  "format_error_game_rate": 1.0,
+  "invalid_move_rate": 1.0,
+  "invalid_end_rate": 1.0,
+  "truncated_call_rate": 0.6171171171171171,
+  "errored_games": 0,
+  "distinct_seeds": 20,
+  "parsed": {
+   "games": 200,
+   "win_rate": 0.0,
+   "avg_reward": 0.20600000000000002,
+   "avg_turns": 3.72,
+   "turns_to_solve": NaN,
+   "guesses_to_solve": NaN,
+   "format_error_rate": 0.4771505376344086,
+   "format_error_game_rate": 1.0,
+   "invalid_move_rate": 1.0,
+   "invalid_end_rate": 1.0,
+   "truncated_call_rate": 0.47043010752688175,
+   "errored_games": 0,
+   "distinct_seeds": 20,
+   "ci": [
+    0.0,
+    0.0
+   ]
+  },
+  "ci": [
+   0.0,
+   0.0
+  ],
+  "train_hours": 0,
+  "gpu_hours": 0
+ },
+ {
+  "model": "+ SFT warmup",
+  "eval_run": "wordle-eval-sft",
+  "games": 200,
+  "win_rate": 0.025,
+  "avg_reward": 0.3,
+  "avg_turns": 5.11,
+  "turns_to_solve": 6.2,
+  "guesses_to_solve": 4.2,
+  "format_error_rate": 0.13894324853228962,
+  "format_error_game_rate": 0.46,
+  "invalid_move_rate": 0.99,
+  "invalid_end_rate": 0.925,
+  "truncated_call_rate": 0.06555772994129158,
+  "errored_games": 0,
+  "distinct_seeds": 20,
+  "parsed": {
+   "games": 200,
+   "win_rate": 0.125,
+   "avg_reward": 0.402,
+   "avg_turns": 5.31,
+   "turns_to_solve": 4.72,
+   "guesses_to_solve": 4.08,
+   "format_error_rate": 0.3116760828625235,
+   "format_error_game_rate": 0.83,
+   "invalid_move_rate": 0.93,
+   "invalid_end_rate": 0.785,
+   "truncated_call_rate": 0.1318267419962335,
+   "errored_games": 0,
+   "distinct_seeds": 20,
+   "ci": [
+    0.075,
+    0.18
+   ]
+  },
+  "ci": [
+   0.0,
+   0.06
+  ],
+  "train_hours": 0.07811437937948439,
+  "gpu_hours": 0.15622875875896877
+ },
+ {
+  "model": "+ SFT + RL (full)",
+  "eval_run": "wordle-eval-rl",
+  "games": 200,
+  "win_rate": 0.15,
+  "avg_reward": 0.428,
+  "avg_turns": 5.825,
+  "turns_to_solve": 6.333333333333333,
+  "guesses_to_solve": 4.466666666666667,
+  "format_error_rate": 0.0944206008583691,
+  "format_error_game_rate": 0.4,
+  "invalid_move_rate": 0.985,
+  "invalid_end_rate": 0.76,
+  "truncated_call_rate": 0.06266094420600858,
+  "errored_games": 0,
+  "distinct_seeds": 20,
+  "parsed": {
+   "games": 200,
+   "win_rate": 0.405,
+   "avg_reward": 0.662,
+   "avg_turns": 5.775,
+   "turns_to_solve": 4.938271604938271,
+   "guesses_to_solve": 4.271604938271605,
+   "format_error_rate": 0.22510822510822512,
+   "format_error_game_rate": 0.745,
+   "invalid_move_rate": 0.785,
+   "invalid_end_rate": 0.44,
+   "truncated_call_rate": 0.1523809523809524,
+   "errored_games": 0,
+   "distinct_seeds": 20,
+   "ci": [
+    0.28,
+    0.53
+   ]
+  },
+  "ci": [
+   0.095,
+   0.2
+  ],
+  "train_hours": 3.721194508406851,
+  "gpu_hours": 7.442389016813702
+ },
+ {
+  "model": "+ SFT + RL (LoRA r32)",
+  "eval_run": "wordle-eval-lora",
+  "games": 200,
+  "win_rate": 0.21,
+  "avg_reward": 0.465,
+  "avg_turns": 6.02,
+  "turns_to_solve": 6.119047619047619,
+  "guesses_to_solve": 4.380952380952381,
+  "format_error_rate": 0.11046511627906977,
+  "format_error_game_rate": 0.45,
+  "invalid_move_rate": 0.985,
+  "invalid_end_rate": 0.645,
+  "truncated_call_rate": 0.08305647840531562,
+  "errored_games": 0,
+  "distinct_seeds": 20,
+  "parsed": {
+   "games": 200,
+   "win_rate": 0.425,
+   "avg_reward": 0.6475,
+   "avg_turns": 5.525,
+   "turns_to_solve": 4.658823529411765,
+   "guesses_to_solve": 4.1647058823529415,
+   "format_error_rate": 0.22805429864253393,
+   "format_error_game_rate": 0.685,
+   "invalid_move_rate": 0.725,
+   "invalid_end_rate": 0.435,
+   "truncated_call_rate": 0.16561085972850678,
+   "errored_games": 0,
+   "distinct_seeds": 20,
+   "ci": [
+    0.3,
+    0.55
+   ]
+  },
+  "ci": [
+   0.115,
+   0.31
+  ],
+  "train_hours": 4.779812313053343,
+  "gpu_hours": 9.559624626106686
+ }
+]

@@ -1,0 +1,19 @@
+[project]
+name = "wordle-rl-local"
+version = "0.1.0"
+description = "Mac-side tooling: local wordle env smoke test, results parsing, plots"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Same verifiers commit that prime-rl pins as deps/verifiers (see README.md)
+    "verifiers[ta]",
+    "wordle",
+    "matplotlib>=3.9",
+    "zstandard>=0.25.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+verifiers = { git = "https://github.com/PrimeIntellect-ai/verifiers.git", rev = "2cb0a6d33a49de0752bbcf9e9a139104da9f5bc4" }
+wordle = { git = "https://github.com/PrimeIntellect-ai/verifiers.git", rev = "2cb0a6d33a49de0752bbcf9e9a139104da9f5bc4", subdirectory = "environments/wordle" }

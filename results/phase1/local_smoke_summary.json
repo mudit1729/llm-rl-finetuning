@@ -1,0 +1,85 @@
+{
+  "summary": {
+    "games": 5,
+    "win_rate": 0.0,
+    "avg_reward": 0.1,
+    "avg_turns": 3.4,
+    "turns_to_solve": NaN,
+    "format_error_rate": 1.0,
+    "invalid_move_rate": 1.0,
+    "invalid_end_rate": 1.0,
+    "truncated_call_rate": 0.5294117647058824,
+    "errored_games": 0,
+    "distinct_seeds": 5
+  },
+  "games": [
+    {
+      "seed": 0,
+      "reward": 0.0,
+      "win": false,
+      "turns": 3,
+      "format_error": true,
+      "invalid_move": true,
+      "invalid_end": true,
+      "calls": 3,
+      "truncated_calls": 1,
+      "errored": false,
+      "outcome": "Invalid Move: You have already guessed 'apple' before. Please try a different word."
+    },
+    {
+      "seed": 1,
+      "reward": 0.2,
+      "win": false,
+      "turns": 4,
+      "format_error": true,
+      "invalid_move": true,
+      "invalid_end": true,
+      "calls": 4,
+      "truncated_calls": 2,
+      "errored": false,
+      "outcome": "Invalid Move: You have already guessed 'straw' before. Please try a different word."
+    },
+    {
+      "seed": 2,
+      "reward": 0.0,
+      "win": false,
+      "turns": 3,
+      "format_error": true,
+      "invalid_move": true,
+      "invalid_end": true,
+      "calls": 3,
+      "truncated_calls": 1,
+      "errored": false,
+      "outcome": "Invalid Move: You have already guessed 'light' before. Please try a different word."
+    },
+    {
+      "seed": 3,
+      "reward": 0.1,
+      "win": false,
+      "turns": 4,
+      "format_error": true,
+      "invalid_move": true,
+      "invalid_end": true,
+      "calls": 4,
+      "truncated_calls": 3,
+      "errored": false,
+      "outcome": "Invalid Move: You tried submitting a word in the wrong format. Please make sure to use squared brackets."
+    },
+    {
+      "seed": 4,
+      "reward": 0.2,
+      "win": false,
+      "turns": 3,
+      "format_error": true,
+      "invalid_move": true,
+      "invalid_end": true,
+      "calls": 3,
+      "truncated_calls": 2,
+      "errored": false,
+      "outcome": "Invalid Move: You tried submitting a word in the wrong format. Please make sure to use squared brackets."
+    }
+  ],
+  "sources": [
+    "results/local/wordle--mlx-community--qwen3-1.7b-4bit--null--90dab145/traces.jsonl"
+  ]
+}

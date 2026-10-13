@@ -1,0 +1,20 @@
+# DIAGNOSTIC, not the project eval: the same settings as eval.toml, but on 20 TRAINING games
+# (the first 20 held-out-safe training seeds: 20-42), 10 tries each = 200 games.
+# Comparing it with eval.toml separates memorized training words from general Wordle skill.
+model = "Qwen/Qwen3-1.7B"
+group_size = 10
+
+[select]
+include = { idx = [20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 34, 35, 36, 37, 38, 40, 41, 42] }
+
+[client]
+base_url = "http://localhost:8000/v1"
+
+[sampling]
+max_completion_tokens = 1024
+
+[[source]]
+name = "wordle"
+env.taskset.id = "wordle"
+env.player.harness.id = "null"
+env.player.runtime.type = "subprocess"

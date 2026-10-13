@@ -1,0 +1,24 @@
+# THE eval for every model in this project; do not change between runs.
+# prime-rl examples/basic/wordle/eval.toml with rollouts raised from 3 to 10 per game:
+# 20 held-out games (seeds 0-19, 18 distinct secret words) x 10 = 200 games.
+# None of the 18 words appear in training (configs/heldout_split.json).
+#
+#   uv run inference --vllm.model <model>            # serves on :8000
+#   uv run eval @ eval.toml -m <model> --run.name <name>
+model = "Qwen/Qwen3-1.7B"
+group_size = 10
+
+[select]
+limit = 20
+
+[client]
+base_url = "http://localhost:8000/v1"
+
+[sampling]
+max_completion_tokens = 1024
+
+[[source]]
+name = "wordle"
+env.taskset.id = "wordle"
+env.player.harness.id = "null"
+env.player.runtime.type = "subprocess"

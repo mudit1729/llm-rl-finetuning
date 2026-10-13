@@ -1,0 +1,18 @@
+# prime-rl examples/basic/wordle/sft.toml, with the SFT data filtered to drop the 98/1000
+# willcb/V3-wordle games whose answer is one of the 18 eval words (scripts/filter_sft_data.py
+# writes ~/wordle-rl/data/v3-wordle-heldout/train.parquet on the instance).
+max_steps = 20
+
+[ckpt] # Checkpoint at the end of training
+
+[model]
+name = "PrimeIntellect/Qwen3-1.7B"
+
+[data]
+name = "/root/wordle-rl/data/v3-wordle-heldout"
+seq_len = 1024
+batch_size = 64
+micro_batch_size = 1
+
+[optim]
+lr = 1e-5

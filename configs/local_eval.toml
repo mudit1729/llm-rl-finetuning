@@ -1,0 +1,33 @@
+# Phase 1 local smoke test: ~5 Wordle games against Qwen3-1.7B served on this Mac
+# by mlx-lm (4-bit MLX weights; numbers are NOT comparable to the vLLM/bf16 evals).
+#
+#   make local-serve   # terminal 1
+#   make local-test    # terminal 2
+#
+# Mirrors examples/basic/wordle/eval.toml in prime-rl (taskset, null harness,
+# subprocess runtime, 1024 completion tokens, prime-rl's default temperature 1.0).
+model = "mlx-community/Qwen3-1.7B-4bit"
+num_rollouts = 1
+max_concurrent = 1   # mlx-lm serves one request at a time well; keep it simple
+push = false         # never upload to the Prime platform
+output_dir = "results/local"
+
+[select]
+limit = 5
+
+[client]
+base_url = "http://127.0.0.1:8080/v1"
+api_key_var = "LOCAL_MLX_API_KEY"   # unset -> "EMPTY"; never forwards a real key
+
+[sampling]
+temperature = 1.0
+max_tokens = 1024
+
+[env.taskset]
+id = "wordle"
+
+[env.player.harness]
+id = "null"
+
+[env.player.runtime]
+type = "subprocess"
