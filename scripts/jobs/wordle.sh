@@ -83,6 +83,10 @@ if want eval-rl-seen; then
 fi
 
 if want rl-turns; then
+  # Export SFT if no earlier stage did, then drop its 21 GB optimizer state: RL's own
+  # checkpoints (21 GB each, two at once while rotating) need the disk.
+  export_hf "$(latest_step_dir wordle-sft)"
+  rm -rf "$(latest_step_dir wordle-sft)/trainer"
   stage "RL with per-turn credit (turn_grpo) from $(sft_weights)"
   uv run rl @ "$C/rl_turns.toml" --model.name "$(sft_weights)" --run.name wordle-rl-turns --clean
 fi
