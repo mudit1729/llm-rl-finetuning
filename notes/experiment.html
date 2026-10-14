@@ -192,6 +192,7 @@ footer { padding-top: 24px; border-top: 1px solid var(--rule); }
       <li><a href="#failure">Why the base model loses</a></li>
       <li><a href="#heldout">Keeping the test honest</a></li>
       <li><a href="#schedule">Training schedule</a></li>
+      <li><a href="#run2">Run 2: per-turn credit</a></li>
       <li><a href="#architecture">Architecture</a></li>
       <li><a href="#results">Results</a></li>
       <li><a href="#fixes">What broke, what fixed it</a></li>
@@ -205,7 +206,7 @@ footer { padding-top: 24px; border-top: 1px solid var(--rule); }
       <p class="eyebrow">RL fine-tuning experiment · prime-rl 1e53181 · verifiers wordle</p>
       <h1>Teaching Qwen3-1.7B to play Wordle</h1>
       <p class="lede">A 1.7-billion-parameter model starts out unable to finish a game. It gets a short supervised warmup on example games, then reinforcement learning against the real game engine. Its win rate is measured on 20 games whose secret words it never sees in training.</p>
-      <p class="lede"><strong>Result:</strong> 0% → <strong>15%</strong> (full fine-tune) and <strong>21%</strong> (LoRA) wins on prime-rl's example eval; <strong>40.5%</strong> and <strong>42.5%</strong> when the eval strips the model's reasoning the way training does.</p>
+      <p class="lede"><strong>Result:</strong> 0% → <strong>15%</strong> (full fine-tune) and <strong>21%</strong> (LoRA) wins on prime-rl's example eval; <strong>40.5%</strong> and <strong>42.5%</strong> when the eval strips the model's reasoning the way training does. A second experiment with per-turn rewards cut turns lost to the token limit from 15% to 1.4%, but held the win rate at 41.5%.</p>
       <div class="status" id="status-line"></div>
       <div class="boards">
         <div class="board" aria-label="Base model game, answer BROWN">
@@ -283,6 +284,7 @@ footer { padding-top: 24px; border-top: 1px solid var(--rule); }
             <tr><td>SFT warmup</td><td>PrimeIntellect/Qwen3-1.7B<span class="small">same weights, multi-turn chat template</span></td><td>902 games, filtered V3-wordle</td><td class="num">20 × 64</td><td>1e-5</td><td>1,024</td><td>1 trainer</td><td class="num">7.5 min<span class="small">14.8 s/step</span></td></tr>
             <tr><td>RL, full fine-tune</td><td>our SFT model</td><td>5,325 held-out-safe seeds</td><td class="num">200 × 128<span class="small">8 words × 16 games</span></td><td>1e-6</td><td>8,192 / game<span class="small">1,024 / turn</span></td><td>1 vLLM + 1 trainer</td><td class="num">3.6 h<span class="small">~65 s/step</span></td></tr>
             <tr><td>RL, LoRA</td><td>our SFT model</td><td>same seeds</td><td class="num">200 × 128</td><td>1e-5<span class="small">rank 32, α 64</span></td><td>same</td><td>same</td><td class="num">4.7 h<span class="small">~85 s/step</span></td></tr>
+            <tr><td>RL, per-turn credit (run 2)</td><td>a fresh SFT model, same recipe</td><td>same seeds, <code>wordle-turns</code> env</td><td class="num">200 × 128</td><td>1e-6<span class="small">turn_grpo: weight 0.5, discount 0.9</span></td><td>same</td><td>same</td><td class="num">2.4 h<span class="small">~43 s/step</span></td></tr>
             <tr><td>Eval after each stage</td><td>the trained model</td><td>the same 200 games</td><td class="num">—</td><td>—</td><td>1,024 / turn</td><td>1 (vLLM)</td><td class="num">~5 min</td></tr>
           </tbody>
         </table>
@@ -296,6 +298,32 @@ footer { padding-top: 24px; border-top: 1px solid var(--rule); }
         <li><span>New weights go to vLLM over NCCL. Generation keeps running while the trainer updates, so some games are sampled by a slightly older policy; the importance weights correct for it. In this run the oldest were up to 8 versions behind.</span></li>
       </ol>
       <p>The LoRA run is identical except that only rank-32 adapters on every linear layer train. The 1.7B base stays frozen. Its rank, alpha and learning rate are the settings from prime-rl's LoRA example (<code>alphabet-sort</code>). Adapters reach vLLM as files and are swapped in live.</p>
+    </section>
+
+    <section id="run2">
+      <h2>Run 2: per-turn credit</h2>
+      <p>Plain GRPO gives every token of a game the same advantage, so a turn lost to the token limit, a repeated guess or a clue-violating guess is never blamed on its own. Run 2 tested whether rewarding each turn separately fixes that. It kept the baseline's SFT recipe, 200 full-fine-tune steps, held-out seeds and both evals, and changed only two things.</p>
+      <ol class="steps">
+        <li><span><b>A <code>wordle-turns</code> env</b> plays the same games and scores each turn. Information gain over the 156-word list is <code>log2(|C_before| / |C_after|) / log2(156)</code>, weighted 0.5. It subtracts 0.5 for a rejected move, 0.5 for a turn cut off at 1,024 tokens, up to 0.2 for thinking between 768 and 1,024 tokens, and 0.2 for a guess that contradicts earlier clues. The game outcome is <code>win × (1 + 0.1 × guesses left)</code>. The env also reads only the text after <code>&lt;/think&gt;</code>, so it no longer depends on the server's reasoning parser.</span></li>
+        <li><span><b>A <code>turn_grpo</code> algorithm</b> (a 97-line patch to the pinned prime-rl). Turn <i>t</i> of game <i>i</i> gets <code>(R_i − mean R) + 0.5 × Σ_k≥t 0.9^(k−t) (r_i,k − mean r_·,k)</code>: the GRPO outcome advantage plus discounted per-turn credit, with each turn compared against the other tries at the same turn.</span></li>
+      </ol>
+      <p class="note">Before any GPU time, 11 tests passed on the Mac. They checked the feedback function against TextArena's own scorer, played two scripted games through a fake model server, and confirmed that per-turn advantages land on the right tokens of real training traces. On the GPU, all 600 training traces checked showed 2–6+ distinct advantages per game.</p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Held-out, reasoning stripped</th><th class="num">Baseline full RL</th><th class="num">Run 2</th></tr></thead>
+          <tbody>
+            <tr><td>Win rate</td><td class="num">40.5%</td><td class="num"><b>41.5%</b></td></tr>
+            <tr><td>Turns cut off at 1,024 tokens</td><td class="num">15%</td><td class="num"><b>1.4%</b></td></tr>
+            <tr><td>Format errors per turn</td><td class="num">22.5%</td><td class="num"><b>9.1%</b></td></tr>
+            <tr><td>Games lost to invalid moves</td><td class="num">88</td><td class="num"><b>39</b></td></tr>
+            <tr><td>Games lost after all 6 guesses</td><td class="num">31</td><td class="num">78</td></tr>
+            <tr><td>Guesses consistent with earlier clues</td><td class="num">54%</td><td class="num">47%</td></tr>
+            <tr><td>Guesses that could still be the answer</td><td class="num">14%</td><td class="num">12%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><b>What it showed.</b> The validity fixes worked, and run 2 trained about 30% faster because thinking got shorter. But the games it rescued now run out of guesses, because the model uses its clues worse. The information-gain bonus pays for exploratory guesses that rule out letters but can't be the answer, and the clue-violation penalty is too weak to offset it. The bottleneck has moved from validity to constraint use.</p>
+      <p><b>Next.</b> Lower the information weight (to about 0.1), raise the clue-violation penalty (to about 0.5) and lower the turn weight (to about 0.3), so winning with consistent guesses dominates. Then add a clue summary to each turn and train longer.</p>
     </section>
 
     <section id="architecture">
@@ -330,8 +358,7 @@ footer { padding-top: 24px; border-top: 1px solid var(--rule); }
         </table>
       </div>
       <p class="note">With the thinking stripped, a turn whose thought runs past 1,024 tokens yields no move at all. That now shows up as a format error instead of a leaked repeat, and it is the RL models' main remaining failure (about 1 turn in 5).</p>
-      <h3>Run 2: per-turn credit</h3>
-      <p class="prose">A new <code>wordle-turns</code> env scores every turn: information gain, penalties for rejected moves, cut-off turns, thinking past 768 tokens and clue violations, and a win reward scaled by speed. A small prime-rl patch (<code>turn_grpo</code>) gives each turn's tokens their own advantage. It fixed what it targeted: cut-off turns fell from 15% to 1.4%, and games lost to invalid moves from 88 to 39 of 200. The held-out win rate did not move (41.5% vs 40.5%), because the rescued games now run out of guesses. Clue consistency fell from 54% to 47%: the information-gain bonus pays for exploratory guesses that can't be the answer. The next run lowers that bonus, strengthens the clue-violation penalty and adds a clue summary to each turn.</p>
+      <p class="note">The per-turn-credit row is run 2. See <a href="#run2">Run 2</a> for what changed and why its win rate held.</p>
       <h3>Held-out words vs training words</h3>
       <p class="prose">The same example eval on 20 training games, 10 tries each. If the RL models had memorized their words, they would score higher here. They don't, so the gains carry over to new words.</p>
       <div class="scroll">
@@ -385,6 +412,7 @@ footer { padding-top: 24px; border-top: 1px solid var(--rule); }
           <tbody>
             <tr><td>Phase 3 · reverse-text smoke test</td><td>2× RTX 3090</td><td class="num">1.3</td></tr>
             <tr><td>Phase 4 · Wordle (SFT, RL, LoRA, 9 diagnostic evals)</td><td>2× A100-SXM4-80GB</td><td class="num">10.3</td></tr>
+            <tr><td>Run 2 · per-turn credit (SFT, RL, 2 evals)</td><td>2× A100-SXM4-80GB</td><td class="num">2.9</td></tr>
           </tbody>
         </table>
       </div>
@@ -399,6 +427,8 @@ make split                            <span class="c"># held-out split → confi
 make vast-offers PROFILE=wordle HOURS=9
 make vast-up OFFER=&lt;id&gt; HOURS=9 &amp;&amp; make vast-setup
 make data eval-base sft eval-sft rl eval-rl rl-lora eval-lora
+make test                             <span class="c"># run 2: shaping, wordle-turns env, turn_grpo patch</span>
+make rl-turns eval-turns              <span class="c"># run 2 on the GPU machine</span>
 make vast-down PHASE=4                <span class="c"># pull, destroy, confirm gone</span>
 make report                           <span class="c"># results/results.md + plots</span></pre>
       <div class="scroll">
@@ -473,7 +503,8 @@ make report                           <span class="c"># results/results.md + plo
     ["3", "Smoke test", "prime-rl's reverse-text example on 2× RTX 3090: reward 0.047 → 0.813.", "done"],
     ["4", "Wordle on 2× A100", "Base eval, SFT warmup, full RL, LoRA RL; each evaluated on the same 200 held-out games.", p4done ? "done" : "run",
       [["4a base eval", st.base], ["4b SFT", st.sft], ["4c full RL " + (st.rl === "run" ? rlText(full) : ""), st.rl], ["4d LoRA RL " + (st.lora === "run" ? rlText(lora) : ""), st.lora]]],
-    ["5", "Report", "results/results.md, training-curve and win-rate plots, notes/REPORT.md, this page.", (byRun["wordle-eval-lora"] && byRun["wordle-eval-lora"].parsed) ? "done" : "wait"]
+    ["5", "Report", "results/results.md, training-curve and win-rate plots, notes/REPORT.md, this page.", (byRun["wordle-eval-lora"] && byRun["wordle-eval-lora"].parsed) ? "done" : "wait"],
+    ["6", "Run 2: per-turn credit", "wordle-turns env + turn_grpo patch; 200 RL steps. Cut-off turns 15% → 1.4%, invalid-move losses 88 → 39; win rate 41.5%.", has("wordle-eval-turns") ? "done" : "wait"]
   ];
   $("phases").innerHTML = phases.map(function (p) {
     var sub = p[5] ? '<div class="sub">' + p[5].map(function (s) { return chip(s[1], s[0].trim()); }).join("") + "</div>" : "";
