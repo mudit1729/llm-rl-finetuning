@@ -10,7 +10,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TARGETS = [ROOT / "configs" / "wordle" / "rl.toml", ROOT / "configs" / "wordle" / "rl_lora.toml"]
+TARGETS = [ROOT / "configs" / "wordle" / name for name in ("rl.toml", "rl_lora.toml", "rl_turns.toml")]
 BLOCK = re.compile(r"(# BEGIN heldout-train-select\n).*?(# END heldout-train-select)", re.S)
 
 

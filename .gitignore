@@ -41,3 +41,4 @@ COST.md
 
 # archify working folders (exported image lives in results/plots)
 .archify/
+results/test-fake/

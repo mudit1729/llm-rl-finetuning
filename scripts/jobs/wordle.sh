@@ -9,6 +9,8 @@
 #   rl-lora    LoRA RL from our SFT weights (rl_lora.toml)   -> outputs/wordle-rl-lora
 #   eval-lora  serve SFT base + final LoRA adapter, eval     -> outputs/wordle-eval-lora
 #   eval-lora-seen / eval-rl-seen  diagnostic: same eval on 20 TRAINING games (eval_seen.toml)
+#   rl-turns   run 2: full RL with per-turn credit (rl_turns.toml, wordle-turns env, turn_grpo)
+#   eval-turns export run 2 and eval it twice: example eval, and with the reasoning parser on
 #   eval-parsed  diagnostic: eval.toml for all 4 models with vLLM's qwen3 reasoning parser on the
 #                server, so the game sees only the answer (as in training, where prime-rl's renderer
 #                splits the thinking out). The example eval passes <think> text through to the game.
@@ -78,6 +80,18 @@ fi
 if want eval-rl-seen; then
   W="$(latest_step_dir wordle-rl)/weights"
   with_server "$W" wordle-infer-rl-seen -- eval_run "$W" wordle-eval-rl-seen eval_seen
+fi
+
+if want rl-turns; then
+  stage "RL with per-turn credit (turn_grpo) from $(sft_weights)"
+  uv run rl @ "$C/rl_turns.toml" --model.name "$(sft_weights)" --run.name wordle-rl-turns --clean
+fi
+
+if want eval-turns; then
+  export_hf "$(latest_step_dir wordle-rl-turns)"
+  W="$(latest_step_dir wordle-rl-turns)/weights"
+  with_server "$W" wordle-infer-turns -- eval_run "$W" wordle-eval-turns
+  SERVER_ARGS="--vllm.reasoning-parser qwen3" with_server "$W" wordle-infer-turns-parsed -- eval_run "$W" wordle-eval-turns-parsed
 fi
 
 if want eval-parsed; then

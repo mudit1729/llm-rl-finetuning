@@ -1,0 +1,25 @@
+# Offline integration test of the wordle-turns env against tests/fake_openai_server.py
+model = "fake"
+num_rollouts = 1
+max_concurrent = 1
+push = false
+output_dir = "results/test-fake"
+
+[select]
+include = { idx = [2, 12] }
+
+[client]
+base_url = "http://127.0.0.1:8093/v1"
+api_key_var = "FAKE_API_KEY"
+
+[sampling]
+max_tokens = 1024
+
+[env.taskset]
+id = "wordle-turns"
+
+[env.player.harness]
+id = "null"
+
+[env.player.runtime]
+type = "subprocess"

@@ -84,7 +84,7 @@ gpu-down: vast-down     ## Alias: pull results, release the machine
 # ------------------------------------------- Phase 3-4 (remote GPU jobs, in tmux)
 # Each runs scripts/remote_job.sh <step> on the instance inside tmux, logging to
 # ~/wordle-rl/logs/<step>.log. `make attach STEP=<step>` follows a job.
-.PHONY: wait smoke split data eval-base sft eval-sft rl eval-rl rl-lora eval-lora attach
+.PHONY: test rl-turns eval-turns wait smoke split data eval-base sft eval-sft rl eval-rl rl-lora eval-lora attach
 smoke:     ## Phase 3: prime-rl reverse-text example end to end
 	$(call need,scripts/remote_job.sh,Phase 3)
 	./scripts/remote_job.sh start smoke
@@ -114,6 +114,14 @@ rl-lora:   ## Phase 4d: LoRA RL with the same settings
 eval-lora: ## Phase 4d: eval the LoRA RL checkpoint
 	$(call need,scripts/remote_job.sh,Phase 4)
 	./scripts/remote_job.sh start eval-lora
+rl-turns:  ## Run 2: full RL with per-turn credit (wordle-turns env + turn_grpo)
+	$(call need,scripts/remote_job.sh,Phase 4)
+	./scripts/remote_job.sh start rl-turns
+eval-turns: ## Run 2: export and eval (example eval + reasoning parser on)
+	$(call need,scripts/remote_job.sh,Phase 4)
+	./scripts/remote_job.sh start eval-turns
+test:      ## Mac: unit + integration tests (shaping, wordle-turns env, turn_grpo patch)
+	uv run pytest tests -q
 attach:    ## Tail a remote job's log: make attach STEP=rl
 	$(call need,scripts/remote_job.sh,Phase 3)
 	./scripts/remote_job.sh tail $(STEP)

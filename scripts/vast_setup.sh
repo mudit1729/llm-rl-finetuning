@@ -37,6 +37,12 @@ git submodule status -- deps/verifiers deps/renderers deps/prime-envs deps/pydan
 echo "== uv sync (all extras + the wordle and reverse-text envs, which are opt-in workspace members)"
 time uv sync --all-extras --package prime-rl --package wordle --package reverse-text
 
+echo "== project patch (turn_grpo algorithm) + wordle-turns env"
+PATCH="$HOME/wordle-rl/patches/prime-rl-turn-grpo.patch"
+if git apply --reverse --check "$PATCH" 2>/dev/null; then echo "   turn_grpo patch already applied"
+else git apply "$PATCH" && echo "   applied $(basename "$PATCH")"; fi
+uv pip install --quiet --no-deps -e "$HOME/wordle-rl/envs/wordle_turns"
+
 echo "== checks"
 export UV_NO_SYNC=1   # use the env just synced; no network re-resolution
 mkdir -p "$(dirname "$CHECK_FILE")"
@@ -50,8 +56,10 @@ import torch, flash_attn, vllm
 print(f"torch: {torch.__version__} (CUDA {torch.version.cuda}), cuda available: {torch.cuda.is_available()}, devices: {torch.cuda.device_count()}")
 print(f"flash_attn: {flash_attn.__version__}")
 print(f"vllm: {vllm.__version__}")
-import wordle, reverse_text  # noqa: F401  (the tasksets this project trains on)
-print("tasksets: wordle, reverse_text import ok")
+import wordle, reverse_text, wordle_turns  # noqa: F401  (the tasksets this project trains on)
+from prime_rl.orchestrator.algo import ALGORITHM_CLASSES
+assert "turn_grpo" in ALGORITHM_CLASSES, "turn_grpo patch missing"
+print("tasksets: wordle, reverse_text, wordle_turns import ok; turn_grpo registered")
 PY
   echo "nvidia-smi:"
   nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv,noheader

@@ -1,0 +1,146 @@
+diff --git a/packages/prime-rl-configs/src/prime_rl/configs/algorithm.py b/packages/prime-rl-configs/src/prime_rl/configs/algorithm.py
+index 5fbe9f8e..e9d1dbf9 100644
+--- a/packages/prime-rl-configs/src/prime_rl/configs/algorithm.py
++++ b/packages/prime-rl-configs/src/prime_rl/configs/algorithm.py
+@@ -208,6 +208,26 @@ class GRPOAlgoConfig(BaseAlgoConfig):
+     """How the rl loss weights tokens across prompt groups. ``token``: every loss token in the batch weighs the same, so groups with more total tokens dominate the gradient. ``prompt``: prompt-mean (MiMo-V2.6 Eq. 1) — each trainable token of group ``q`` gets rl weight ``1 / T_q`` (``T_q`` = the group's trainable tokens), and the trainer divides the rl loss by the summed weights, i.e. the number of groups. All rl envs of a run must use the same value."""
+ 
+ 
++class TurnGRPOAlgoConfig(BaseAlgoConfig):
++    type: Literal["turn_grpo"] = "turn_grpo"
++    """GRPO with turn-level credit: each model turn's tokens get the episode's GRPO
++    advantage plus ``turn_weight`` times the discounted sum of that turn's and later
++    turns' per-turn-baselined rewards. Needs an env that records one dict per model
++    turn with a ``reward`` field in ``trace.info[turn_info_key]`` (e.g. ``wordle-turns``);
++    other traces fall back to plain GRPO."""
++
++    action_loss_type: ClassVar[ActionLossType] = "rl"
++
++    turn_weight: float = Field(0.5, ge=0)
++    """Weight of the per-turn credit relative to the outcome advantage."""
++
++    discount: float = Field(0.9, ge=0, le=1)
++    """Discount over later turns when summing per-turn credit."""
++
++    turn_info_key: str = "turns"
++    """Key in ``trace.info`` holding the per-turn records."""
++
++
+ class EchoAlgoConfig(GRPOAlgoConfig):
+     type: Literal["echo"] = "echo"  # type: ignore[assignment]
+     """ECHO: group-relative advantage on action tokens (GRPO), plus weighted
+@@ -392,6 +412,7 @@ class DebugAlgoConfig(BaseAlgoConfig):
+ 
+ AlgoConfig: TypeAlias = Annotated[
+     GRPOAlgoConfig
++    | TurnGRPOAlgoConfig
+     | EchoAlgoConfig
+     | MaxRLAlgoConfig
+     | RAEAlgoConfig
+diff --git a/src/prime_rl/orchestrator/algo/__init__.py b/src/prime_rl/orchestrator/algo/__init__.py
+index a2f1dd6f..f8bd88b6 100644
+--- a/src/prime_rl/orchestrator/algo/__init__.py
++++ b/src/prime_rl/orchestrator/algo/__init__.py
+@@ -33,6 +33,7 @@ from prime_rl.orchestrator.algo.opsd import OPSDAlgorithm
+ from prime_rl.orchestrator.algo.rae import RAEAlgorithm
+ from prime_rl.orchestrator.algo.routing import assign_advantages, stamp_loss_routing
+ from prime_rl.orchestrator.algo.sft import SFTDistillAlgorithm
++from prime_rl.orchestrator.algo.turn_grpo import TurnGRPOAlgorithm
+ 
+ if TYPE_CHECKING:
+     from prime_rl.configs.algorithm import AlgoConfig
+@@ -42,6 +43,7 @@ if TYPE_CHECKING:
+ # each config class's defaults are its vetted parameterization.
+ ALGORITHM_CLASSES: dict[str, type[Algorithm]] = {
+     "grpo": GRPOAlgorithm,
++    "turn_grpo": TurnGRPOAlgorithm,
+     "echo": EchoAlgorithm,
+     "max_rl": MaxRLAlgorithm,
+     "rae": RAEAlgorithm,
+@@ -74,6 +76,7 @@ __all__ = [
+     "OPSDAlgorithm",
+     "RAEAlgorithm",
+     "SFTDistillAlgorithm",
++    "TurnGRPOAlgorithm",
+     "build_algorithm",
+     "assign_advantages",
+     "stamp_loss_routing",
+diff --git a/src/prime_rl/orchestrator/algo/turn_grpo.py b/src/prime_rl/orchestrator/algo/turn_grpo.py
+new file mode 100644
+index 00000000..b11aad95
+--- /dev/null
++++ b/src/prime_rl/orchestrator/algo/turn_grpo.py
+@@ -0,0 +1,73 @@
++from __future__ import annotations
++
++from typing import TYPE_CHECKING
++
++import verifiers.v1 as vf
++
++from prime_rl.configs.algorithm import TurnGRPOAlgoConfig
++from prime_rl.orchestrator.algo.base import Algorithm, iter_trainable_traces
++from prime_rl.orchestrator.algo.routing import assign_advantages, trainable_nodes
++
++if TYPE_CHECKING:
++    from prime_rl.orchestrator.clients import InferenceClient
++
++
++def turn_advantages(
++    outcomes: list[float], turn_rewards: list[list[float]], turn_weight: float, discount: float
++) -> list[list[float]]:
++    """Per-turn advantages for one group of rollouts on the same task.
++
++    outcome term: R_i - mean_j R_j  (GRPO, no std normalization)
++    turn term:    a_{i,t} = r_{i,t} - mean_{j reached t} r_{j,t}   (per-turn baseline)
++                  G_{i,t} = sum_{k>=t} discount^(k-t) a_{i,k}       (discounted turn credit to go)
++    advantage:    A_{i,t} = (R_i - mean R) + turn_weight * G_{i,t}
++    """
++    if not outcomes:
++        return []
++    mean_outcome = sum(outcomes) / len(outcomes)
++    horizon = max((len(r) for r in turn_rewards), default=0)
++    baselines = []
++    for t in range(horizon):
++        at_t = [r[t] for r in turn_rewards if len(r) > t]
++        baselines.append(sum(at_t) / len(at_t))
++    result = []
++    for outcome, rewards in zip(outcomes, turn_rewards, strict=True):
++        to_go, credit = 0.0, [0.0] * len(rewards)
++        for t in range(len(rewards) - 1, -1, -1):
++            to_go = (rewards[t] - baselines[t]) + discount * to_go
++            credit[t] = to_go
++        result.append([(outcome - mean_outcome) + turn_weight * c for c in credit])
++    return result
++
++
++class TurnGRPOAlgorithm(Algorithm):
++    """GRPO with turn-level credit for multi-turn envs that record per-turn rewards.
++
++    The env stores one dict per model turn in ``trace.info[turn_info_key]`` with a
++    ``reward`` field (e.g. the ``wordle-turns`` taskset). Each trainable node (one per
++    model turn, in graph order) gets that turn's advantage on all its sampled tokens.
++    A trace whose turn records don't match its trainable nodes falls back to the
++    plain GRPO scalar advantage, so the algorithm is safe on any env."""
++
++    def __init__(self, config: TurnGRPOAlgoConfig, clients: InferenceClient):
++        super().__init__(config, clients)
++        self.turn_weight = config.turn_weight
++        self.discount = config.discount
++        self.turn_info_key = config.turn_info_key
++
++    async def score_group(self, episodes: list[vf.Episode]) -> None:
++        traces = [trace for _, trace in iter_trainable_traces(episodes)]
++        if not traces:
++            return
++        outcomes = [float(trace.reward) for trace in traces]
++        records = [trace.info.get(self.turn_info_key) or [] for trace in traces]
++        rewards = [[float(rec.get("reward", 0.0)) for rec in recs] for recs in records]
++        per_turn = turn_advantages(outcomes, rewards, self.turn_weight, self.discount)
++        mean_outcome = sum(outcomes) / len(outcomes)
++        for trace, outcome, advantages in zip(traces, outcomes, per_turn, strict=True):
++            nodes = trainable_nodes(trace)
++            if not advantages or len(nodes) != len(advantages):
++                assign_advantages(trace, outcome - mean_outcome)
++                continue
++            for node, advantage in zip(nodes, advantages, strict=True):
++                node.advantages = [float(advantage)] * sum(node.mask)
