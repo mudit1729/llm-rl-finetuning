@@ -16,6 +16,7 @@ SFT warmup plus RL with [prime-rl](https://github.com/PrimeIntellect-ai/prime-rl
 | + SFT warmup | 2.5% | 12.5% | 0.30 / 0.40 |
 | + RL, full fine-tune | 15.0% (10–20) | **40.5%** (28–53) | 0.43 / 0.66 |
 | + RL, LoRA r32 | **21.0%** (12–31) | **42.5%** (30–55) | 0.47 / 0.65 |
+| + RL, per-turn credit (run 2) | 17.0% (10–24) | 41.5% (28–56) | 0.45 / 0.64 |
 
 ![RL training reward](results/plots/train_reward.png)
 
@@ -34,7 +35,8 @@ Full tables: [results/results.md](results/results.md). One-page summary: [notes/
 3. **No memorization.** RL models do no better on training words than on held-out words.
 4. **LoRA matched full fine-tuning** step for step, using 9 GiB of trainer memory instead of 30.
 5. **Main remaining failure:** about 1 turn in 5 runs out of the 1,024-token budget mid-thought.
-6. **Turns-to-solve didn't drop** (about 4.1–4.3 guesses per win after SFT and after RL).
+6. **Turns-to-solve didn't drop** (about 4.1–4.5 guesses per win after SFT and after RL).
+7. **Per-turn credit fixed validity, not wins.** Cut-off turns fell from 15% to 1.4% and invalid-move losses from 88 to 39 of 200, but the win rate held at about 41%: the model now runs out of guesses because its information-gain bonus favors exploratory guesses over consistent ones ([notes/REPORT.md](notes/REPORT.md)).
 
 ## Training schedule
 

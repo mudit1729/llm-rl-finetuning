@@ -57,6 +57,8 @@ When the model guesses, a median of 3 of the 156 secret words are still possible
 - Keep the shaping bounded and smaller than the win term; summing per-guess rewards gave AWS's lost games positive reward.
 - Information gain alone can favour a non-candidate guess late in the game.
 
+**Result of run 2 (ideas 1 and 2 implemented).** Cut-off turns fell from 15% to 1.4%, and games lost to invalid moves from 88 to 39 out of 200. The held-out win rate did not move (40.5% → 41.5%): the rescued games now run out of guesses, because clue consistency fell from 54% to 47%. The information-gain weight is too high relative to the clue-violation penalty. Re-weight and add idea 3. Details in REPORT.md.
+
 ### 2. Stop the cut-off turns
 
 - **If 1,024 tokens per turn is fixed:** train Elastic-style. Cap thinking at about 900 tokens, force `</think>`, then allow about 100 answer tokens, and leave the forced tokens out of the loss. Source: https://arxiv.org/abs/2505.05315

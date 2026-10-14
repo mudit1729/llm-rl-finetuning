@@ -9,6 +9,7 @@ never seen in SFT or RL) × 10 rollouts = 200 games, temperature 1.0, 1024 token
 | + SFT warmup | 2.5% (0–6%) | 0.30 | 5.11 | 4.20 | 13.9% | 0.16 |
 | + SFT + RL (full) | 15.0% (10–20%) | 0.43 | 5.83 | 4.47 | 9.4% | 7.44 |
 | + SFT + RL (LoRA r32) | 21.0% (12–31%) | 0.47 | 6.02 | 4.38 | 11.0% | 9.56 |
+| + SFT + RL (per-turn credit) | 17.0% (10–24%) | 0.45 | 6.96 | 4.32 | 2.4% | 4.94 |
 
 ### Same eval with reasoning stripped (diagnostic)
 
@@ -22,6 +23,7 @@ eval passes the raw text, and the game plays the first bracketed word, often a g
 | + SFT warmup | 12.5% (8–18%) | 0.40 | 5.31 | 4.08 | 31.2% |
 | + SFT + RL (full) | 40.5% (28–53%) | 0.66 | 5.78 | 4.27 | 22.5% |
 | + SFT + RL (LoRA r32) | 42.5% (30–55%) | 0.65 | 5.53 | 4.16 | 22.8% |
+| + SFT + RL (per-turn credit) | 41.5% (28–56%) | 0.64 | 5.88 | 4.53 | 9.1% |
 
 ### Held-out vs training words (diagnostic)
 

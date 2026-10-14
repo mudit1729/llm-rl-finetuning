@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from make_report import MODELS, PARSED, eval_games, run_hours, train_curve, win_ci  # noqa: E402
+from make_report import MODELS, PARSED, eval_games, run_dir, run_hours, train_curve, win_ci  # noqa: E402
 from summarize_eval import summarize  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,7 +33,7 @@ def main() -> None:
     out = art / "outputs" if art else None
     evals = []
     for label, run, train_runs in MODELS:
-        games = eval_games(out / run) if out and (out / run).exists() else []
+        games = eval_games(run_dir(art, run)) if art and run_dir(art, run).exists() else []
         row = {"model": label, "run": run, "games": len(games)}
         if games:
             s = summarize(games)
@@ -45,7 +45,7 @@ def main() -> None:
                 if row[k] != row[k]:  # NaN -> null
                     row[k] = None
         for key, other in (("parsed", PARSED.get(run)), ("seen", run + "-seen")):
-            og = eval_games(out / other) if out and other and (out / other).exists() else []
+            og = eval_games(run_dir(art, other)) if art and other and run_dir(art, other).exists() else []
             if og:
                 o = summarize(og)
                 row[key] = {k: (None if o[k] != o[k] else o[k]) for k in
@@ -54,10 +54,11 @@ def main() -> None:
         evals.append(row)
 
     rl = {}
-    for key, run in (("full", "wordle-rl"), ("lora", "wordle-rl-lora")):
-        pts = train_curve(out / run) if out and (out / run).exists() else []
+    for key, run in (("full", "wordle-rl"), ("lora", "wordle-rl-lora"), ("turns", "wordle-rl-turns")):
+        d = run_dir(art, run) if art else None
+        pts = train_curve(d) if d and d.exists() else []
         rl[key] = {"curve": [[s, round(v, 4)] for s, v in pts], "steps": STEPS,
-                   "hours": round(run_hours(out / run) or 0, 2) if pts else None}
+                   "hours": round(run_hours(d) or 0, 2) if pts else None}
 
     split = json.loads((ROOT / "configs" / "heldout_split.json").read_text())
     data = {

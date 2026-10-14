@@ -35,6 +35,7 @@ MODELS = [  # (label, eval run, training runs that produced it)
     ("+ SFT warmup", "wordle-eval-sft", ["wordle-sft"]),
     ("+ SFT + RL (full)", "wordle-eval-rl", ["wordle-sft", "wordle-rl"]),
     ("+ SFT + RL (LoRA r32)", "wordle-eval-lora", ["wordle-sft", "wordle-rl-lora"]),
+    ("+ SFT + RL (per-turn credit)", "wordle-eval-turns", ["wordle-sft", "wordle-rl-turns"]),
 ]
 SEEN = [  # diagnostic: the same eval on 20 training games (configs/wordle/eval_seen.toml)
     ("+ SFT + RL (full)", "wordle-eval-rl", "wordle-eval-rl-seen"),
@@ -43,12 +44,16 @@ SEEN = [  # diagnostic: the same eval on 20 training games (configs/wordle/eval_
 PARSED = {  # diagnostic: eval.toml with vLLM's qwen3 reasoning parser on the server
     "wordle-eval-base": "wordle-eval-base-parsed", "wordle-eval-sft": "wordle-eval-sft-parsed",
     "wordle-eval-rl": "wordle-eval-rl-parsed", "wordle-eval-lora": "wordle-eval-lora-parsed",
+    "wordle-eval-turns": "wordle-eval-turns-parsed",
 }
 TRAIN_KEY = re.compile(r"^train/agg/all/[^/]+/reward/mean$")
 
 # Reference palette, light mode (dataviz skill references/palette.md)
 SURFACE, INK, INK2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
-SERIES = {"wordle-rl": ("#2a78d6", "full fine-tune"), "wordle-rl-lora": ("#eb6834", "LoRA r32")}
+SERIES = {"wordle-rl": ("#2a78d6", "full fine-tune"), "wordle-rl-lora": ("#eb6834", "LoRA r32"),
+          "wordle-rl-turns": ("#1baf7a", "per-turn credit")}
+# Run 2 scores games differently (outcome = win x speed), so its curve uses the game's own reward.
+GAME_REWARD_KEY = re.compile(r"^train/agg/all/[^/]+/metrics/game_reward/mean$")
 
 
 def latest_artifacts() -> Path:
@@ -56,6 +61,12 @@ def latest_artifacts() -> Path:
     if not found:
         raise SystemExit("no artifacts/wordle-rl-wordle-* (run: make vast-pull)")
     return found[-1]
+
+
+def run_dir(art: Path, run: str) -> Path:
+    """The newest outputs/<run> across all instance artifact folders (runs span instances)."""
+    found = sorted((ROOT / "artifacts").glob(f"wordle-rl-wordle-*/outputs/{run}"), key=lambda p: p.stat().st_mtime)
+    return found[-1] if found else art / "outputs" / run
 
 
 def metrics_rows(run_dir: Path) -> list[dict]:
@@ -69,10 +80,12 @@ def run_hours(run_dir: Path) -> float | None:
 
 
 def train_curve(run_dir: Path) -> list[tuple[int, float]]:
+    rows = metrics_rows(run_dir)
+    key = GAME_REWARD_KEY if any(GAME_REWARD_KEY.match(k) for r in rows for k in r) else TRAIN_KEY
     pts = {}
-    for r in metrics_rows(run_dir):
+    for r in rows:
         for k, v in r.items():
-            if TRAIN_KEY.match(k) and isinstance(v, (int, float)):
+            if key.match(k) and isinstance(v, (int, float)):
                 pts[r["step"]] = v
     return sorted(pts.items())
 
@@ -111,7 +124,7 @@ def style(ax) -> None:
 
 
 def plot_train(art: Path) -> Path | None:
-    curves = {run: train_curve(art / "outputs" / run) for run in SERIES}
+    curves = {run: train_curve(run_dir(art, run)) for run in SERIES}
     curves = {k: v for k, v in curves.items() if v}
     if not curves:
         return None
@@ -126,14 +139,20 @@ def plot_train(art: Path) -> Path | None:
         ax.plot(steps, vals, color=color, linewidth=1, alpha=0.3)
         ax.plot(steps, smooth, color=color, linewidth=2, label=f"{label} (10-step mean)")
         ends[run] = (steps[-1], smooth[-1], label)
-    # End labels; spread them vertically when the lines finish close together.
+    # End labels, spread so none overlap: at least 12 points apart, lowest first.
     order = sorted(ends.values(), key=lambda e: e[1])
-    for k, (x_end, y_end, label) in enumerate(order):
-        dy = 0 if len(order) == 1 or abs(order[-1][1] - order[0][1]) > 0.03 else (-7 if k == 0 else 7)
-        ax.annotate(f"{label}  {y_end:.2f}", (x_end, y_end), xytext=(6, dy), textcoords="offset points",
+    to_px = ax.transData.transform
+    placed = []
+    for x_end, y_end, label in order:
+        y_px = to_px((x_end, y_end))[1]
+        if placed and y_px < placed[-1] + 12:
+            y_px = placed[-1] + 12
+        placed.append(y_px)
+        dy = y_px - to_px((x_end, y_end))[1]
+        ax.annotate(f"{label}  {y_end:.2f}", (x_end, y_end), xytext=(6, dy * 72 / fig.dpi), textcoords="offset points",
                     va="center", fontsize=9, color=INK)
     ax.set_xlabel("RL step (128 games per step)", color=INK2, fontsize=9)
-    ax.set_ylabel("mean training reward", color=INK2, fontsize=9)
+    ax.set_ylabel("mean training reward (game's own scale)", color=INK2, fontsize=9)
     ax.set_title("Wordle RL training reward, Qwen3-1.7B from our SFT warmup", color=INK, fontsize=11, loc="left")
     ax.legend(frameon=False, fontsize=9, labelcolor=INK2, loc="lower right")
     ax.margins(x=0.02)
@@ -167,12 +186,14 @@ def plot_win(rows: list[dict]) -> Path:
             ax.annotate(f"{rate:.1f}%", (xi, rate + hi), xytext=(0, 3),
                         textcoords="offset points", ha="center", fontsize=9, color=INK)
     if len(groups) > 1:
-        ax.legend(frameon=False, fontsize=8.5, labelcolor=INK2, loc="upper left")
+        ax.legend(frameon=False, fontsize=8.5, labelcolor=INK2, loc="upper right")
     x = range(len(rows))
     ax.axhline(60, color=INK2, linewidth=1, linestyle=(0, (4, 3)))
-    ax.annotate("prime-rl example, eval words not held out: ~60%", (len(rows) - 0.6, 60), xytext=(0, 4), annotation_clip=False,
-                textcoords="offset points", ha="right", fontsize=8.5, color=INK2)
-    ax.set_xticks(list(x), [r["model"] for r in rows], fontsize=9, color=INK)
+    ax.annotate("prime-rl example, eval words not held out: ~60%", (-0.45, 60), xytext=(0, 4), annotation_clip=False,
+                textcoords="offset points", ha="left", fontsize=8.5, color=INK2)
+    short = {"Qwen3-1.7B (base)": "Base", "+ SFT warmup": "SFT", "+ SFT + RL (full)": "SFT + RL\nfull",
+             "+ SFT + RL (LoRA r32)": "SFT + RL\nLoRA r32", "+ SFT + RL (per-turn credit)": "SFT + RL\nper-turn credit"}
+    ax.set_xticks(list(x), [short.get(r["model"], r["model"]) for r in rows], fontsize=9, color=INK)
     ax.set_ylabel("win rate on 200 held-out games (%)", color=INK2, fontsize=9)
     ax.set_ylim(0, max(100, max(tops) + 15))
     ax.set_title("Wordle win rate before vs after training (95% CI over the 20 held-out games)",
@@ -192,13 +213,13 @@ def main() -> None:
         inst = json.loads((ROOT / ".vast" / "instance.json").read_text())
     n_gpus = int(inst["gpu"].split("x")[0]) if inst else 2
 
-    hours = {run: run_hours(art / "outputs" / run) for run in ("wordle-sft", "wordle-rl", "wordle-rl-lora")}
+    hours = {run: run_hours(run_dir(art, run)) for run in ("wordle-sft", "wordle-rl", "wordle-rl-lora", "wordle-rl-turns")}
     rows = []
     for label, eval_run, train_runs in MODELS:
-        games = eval_games(art / "outputs" / eval_run) if (art / "outputs" / eval_run).exists() else []
+        games = eval_games(run_dir(art, eval_run)) if run_dir(art, eval_run).exists() else []
         s = summarize(games) if games else {}
         h = sum(hours.get(r) or 0 for r in train_runs)
-        pg = eval_games(art / "outputs" / PARSED[eval_run]) if (art / "outputs" / PARSED[eval_run]).exists() else []
+        pg = eval_games(run_dir(art, PARSED[eval_run])) if run_dir(art, PARSED[eval_run]).exists() else []
         parsed = {**summarize(pg), "ci": win_ci(pg)} if pg else None
         rows.append({"model": label, "eval_run": eval_run, "games": len(games), **s, "parsed": parsed,
                      "ci": win_ci(games) if games else None,
@@ -229,7 +250,7 @@ def main() -> None:
     seen_rows = []
     for label, held_run, seen_run in SEEN:
         held = next((r for r in rows if r["eval_run"] == held_run and r["games"]), None)
-        sg = eval_games(art / "outputs" / seen_run) if (art / "outputs" / seen_run).exists() else []
+        sg = eval_games(run_dir(art, seen_run)) if run_dir(art, seen_run).exists() else []
         if held and sg:
             ss = summarize(sg)
             seen_rows.append(f"| {label} | {pct(held['win_rate'])} | {pct(ss['win_rate'])} | {num(held['avg_reward'])} "

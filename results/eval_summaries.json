@@ -80,8 +80,8 @@
    0.0,
    0.06
   ],
-  "train_hours": 0.07811437937948439,
-  "gpu_hours": 0.15622875875896877
+  "train_hours": 0.07776071323288812,
+  "gpu_hours": 0.15552142646577624
  },
  {
   "model": "+ SFT + RL (full)",
@@ -122,8 +122,8 @@
    0.095,
    0.2
   ],
-  "train_hours": 3.721194508406851,
-  "gpu_hours": 7.442389016813702
+  "train_hours": 3.7208408422602544,
+  "gpu_hours": 7.441681684520509
  },
  {
   "model": "+ SFT + RL (LoRA r32)",
@@ -164,7 +164,49 @@
    0.115,
    0.31
   ],
-  "train_hours": 4.779812313053343,
-  "gpu_hours": 9.559624626106686
+  "train_hours": 4.779458646906747,
+  "gpu_hours": 9.558917293813494
+ },
+ {
+  "model": "+ SFT + RL (per-turn credit)",
+  "eval_run": "wordle-eval-turns",
+  "games": 200,
+  "win_rate": 0.17,
+  "avg_reward": 0.445,
+  "avg_turns": 6.955,
+  "turns_to_solve": 6.676470588235294,
+  "guesses_to_solve": 4.323529411764706,
+  "format_error_rate": 0.024442846872753415,
+  "format_error_game_rate": 0.155,
+  "invalid_move_rate": 0.98,
+  "invalid_end_rate": 0.51,
+  "truncated_call_rate": 0.0014378145219266715,
+  "errored_games": 0,
+  "distinct_seeds": 20,
+  "parsed": {
+   "games": 200,
+   "win_rate": 0.415,
+   "avg_reward": 0.6445000000000001,
+   "avg_turns": 5.88,
+   "turns_to_solve": 4.843373493975903,
+   "guesses_to_solve": 4.530120481927711,
+   "format_error_rate": 0.09098639455782313,
+   "format_error_game_rate": 0.39,
+   "invalid_move_rate": 0.56,
+   "invalid_end_rate": 0.195,
+   "truncated_call_rate": 0.013605442176870748,
+   "errored_games": 0,
+   "distinct_seeds": 20,
+   "ci": [
+    0.275,
+    0.555
+   ]
+  },
+  "ci": [
+   0.105,
+   0.235
+  ],
+  "train_hours": 2.4719501164886686,
+  "gpu_hours": 4.943900232977337
  }
 ]

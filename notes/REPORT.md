@@ -14,8 +14,38 @@ win rates are **40.5% and 42.5%**. Average reward rose from 0.17 to 0.43–0.47 
 | + SFT warmup (20 steps) | 2.5% (0–6) | 12.5% (8–18) | 0.30 / 0.40 | 4.08 | 13.9% | 0.16 |
 | + RL, full fine-tune (200 steps) | 15.0% (10–20) | **40.5%** (28–53) | 0.43 / 0.66 | 4.27 | 9.4% | 7.44 |
 | + RL, LoRA r32 (200 steps) | **21.0%** (12–31) | **42.5%** (30–55) | 0.47 / 0.65 | 4.16 | 11.0% | 9.56 |
+| + RL, per-turn credit (200 steps) | 17.0% (10–24) | 41.5% (28–56) | 0.45 / 0.64 | 4.53 | 2.4% | 4.94 |
 
 95% intervals resample the 20 eval games. Full tables: `results/results.md`. Plots: `results/plots/`.
+
+## Run 2: per-turn credit (the main bet from notes/IDEAS.md)
+
+**Setup.** A new `wordle-turns` env scores every turn:
+- information gain over the 156-word list;
+- penalties for rejected moves, turns cut off at the token limit, thinking past 768 tokens, and guesses that contradict earlier clues;
+- a win reward scaled by speed.
+
+A small prime-rl patch (`turn_grpo`) gives each turn's tokens its own advantage: the GRPO outcome advantage plus discounted per-turn credit. The SFT recipe and the 200 full-fine-tune RL steps are otherwise the same as the baseline.
+
+**Results** (thinking removed, 200 held-out games):
+
+| | Baseline full RL | Per-turn credit |
+|---|---|---|
+| Win rate | 40.5% | 41.5% |
+| Turns cut off at 1,024 tokens | 15% | **1.4%** |
+| Format errors per turn | 22.5% | **9.1%** |
+| Games lost to invalid moves | 88 | **39** |
+| Games lost after all 6 guesses | 31 | 78 |
+| Guesses consistent with earlier clues | 54% | 47% |
+| Guesses that could still be the answer | 14% | 12% |
+
+**Takeaway.** The cut-off and validity fixes worked. Run 2 also trained about 30% faster, because thinking got shorter. The win rate did not move: the games it rescued now run out of guesses, because the model uses its clues *worse*. The information-gain bonus pays for exploratory guesses that cannot be the answer, and the clue-violation penalty is too weak to offset it.
+
+**Next run (run 3):**
+- Lower the information weight to about 0.1.
+- Raise the clue-violation penalty to about 0.5, and lower the turn weight to about 0.3, so that winning with consistent guesses dominates.
+- Add the clue-state summary to observations (idea 3 in IDEAS.md).
+- Train longer; the reward was still rising at step 200.
 
 ## Success criteria
 
