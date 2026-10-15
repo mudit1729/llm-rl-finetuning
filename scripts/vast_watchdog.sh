@@ -6,6 +6,7 @@
 # Every minute: the instance is busy if a tmux session job-* is running or any GPU is
 # above 5% utilization. After --idle-min idle minutes it pulls everything and destroys the
 # instance (scripts/vast_down.sh --yes). `touch .vast/keep` pauses it (keep the instance).
+# If the direct ssh port stops answering for 3 min, it switches to vast's ssh proxy.
 # Exits when no instance is recorded.
 set -uo pipefail
 source "$(dirname "$0")/vast_lib.sh"
@@ -23,6 +24,7 @@ while [ -s "$VAST_DIR/instance_id" ]; do
   if [ -z "$state" ]; then
     unreachable=$((unreachable + 1))
     echo "[$(date +%H:%M)] instance unreachable ($unreachable min)"
+    if [ "$unreachable" -eq 3 ] && url="$(use_proxy_ssh)"; then echo "[$(date +%H:%M)] switched to vast's ssh proxy: $url"; fi
     [ "$unreachable" -ge "$idle_min" ] && { echo "WATCHDOG: unreachable for ${idle_min} min; check it and run make vast-down"; exit 2; }
     sleep 60; continue
   fi

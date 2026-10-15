@@ -211,7 +211,7 @@
  },
  {
   "model": "+ structured-thinking SFT",
-  "eval_run": "wordle-eval-sft-cot",
+  "eval_run": "wordle-eval-sft-cot@55959398",
   "games": 200,
   "win_rate": 0.115,
   "avg_reward": 0.4235,
@@ -253,7 +253,7 @@
  },
  {
   "model": "+ structured SFT + RL (reweighted)",
-  "eval_run": "wordle-eval-cot",
+  "eval_run": "wordle-eval-cot@55959398",
   "games": 200,
   "win_rate": 0.455,
   "avg_reward": 0.6629999999999999,
@@ -292,5 +292,47 @@
   ],
   "train_hours": 5.156424211263657,
   "gpu_hours": 10.312848422527313
+ },
+ {
+  "model": "+ structured SFT + RL, rerun",
+  "eval_run": "wordle-eval-cot@56052036",
+  "games": 200,
+  "win_rate": 0.41,
+  "avg_reward": 0.6585,
+  "avg_turns": 5.605,
+  "turns_to_solve": 4.573170731707317,
+  "guesses_to_solve": 4.2926829268292686,
+  "format_error_rate": 0.06601248884924175,
+  "format_error_game_rate": 0.29,
+  "invalid_move_rate": 0.415,
+  "invalid_end_rate": 0.14,
+  "truncated_call_rate": 0.020517395182872437,
+  "errored_games": 0,
+  "distinct_seeds": 20,
+  "parsed": {
+   "games": 200,
+   "win_rate": 0.055,
+   "avg_reward": 0.3265,
+   "avg_turns": 4.245,
+   "turns_to_solve": 3.5454545454545454,
+   "guesses_to_solve": 2.6363636363636362,
+   "format_error_rate": 0.535924617196702,
+   "format_error_game_rate": 0.985,
+   "invalid_move_rate": 0.985,
+   "invalid_end_rate": 0.91,
+   "truncated_call_rate": 0.009422850412249705,
+   "errored_games": 0,
+   "distinct_seeds": 20,
+   "ci": [
+    0.02,
+    0.1
+   ]
+  },
+  "ci": [
+   0.275,
+   0.555
+  ],
+  "train_hours": 2.4016618837250605,
+  "gpu_hours": 4.803323767450121
  }
 ]

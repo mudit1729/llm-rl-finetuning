@@ -36,8 +36,10 @@ MODELS = [  # (label, eval run, training runs that produced it)
     ("+ SFT + RL (full)", "wordle-eval-rl", ["wordle-sft", "wordle-rl"]),
     ("+ SFT + RL (LoRA r32)", "wordle-eval-lora", ["wordle-sft", "wordle-rl-lora"]),
     ("+ SFT + RL (per-turn credit)", "wordle-eval-turns", ["wordle-sft", "wordle-rl-turns"]),
-    ("+ structured-thinking SFT", "wordle-eval-sft-cot", ["wordle-sft-cot"]),
-    ("+ structured SFT + RL (reweighted)", "wordle-eval-cot", ["wordle-sft-cot", "wordle-rl-cot"]),
+    # Run 3 ran twice with the same run names; name@<instance id> reads one instance's artifacts.
+    ("+ structured-thinking SFT", "wordle-eval-sft-cot@55959398", ["wordle-sft-cot@55959398"]),
+    ("+ structured SFT + RL (reweighted)", "wordle-eval-cot@55959398", ["wordle-sft-cot@55959398", "wordle-rl-cot@55959398"]),
+    ("+ structured SFT + RL, rerun", "wordle-eval-cot@56052036", ["wordle-sft-cot@56052036", "wordle-rl-cot@56052036"]),
 ]
 SEEN = [  # diagnostic: the same eval on 20 training games (configs/wordle/eval_seen.toml)
     ("+ SFT + RL (full)", "wordle-eval-rl", "wordle-eval-rl-seen"),
@@ -47,7 +49,8 @@ PARSED = {  # diagnostic: eval.toml with vLLM's qwen3 reasoning parser on the se
     "wordle-eval-base": "wordle-eval-base-parsed", "wordle-eval-sft": "wordle-eval-sft-parsed",
     "wordle-eval-rl": "wordle-eval-rl-parsed", "wordle-eval-lora": "wordle-eval-lora-parsed",
     "wordle-eval-turns": "wordle-eval-turns-parsed",
-    "wordle-eval-sft-cot": "wordle-eval-sft-cot-parsed", "wordle-eval-cot": "wordle-eval-cot-parsed",
+    "wordle-eval-sft-cot@55959398": "wordle-eval-sft-cot-parsed@55959398",
+    "wordle-eval-cot@55959398": "wordle-eval-cot-parsed@55959398", "wordle-eval-cot@56052036": "wordle-eval-cot-parsed@56052036",
 }
 TRAIN_KEY = re.compile(r"^train/agg/all/[^/]+/reward/mean$")
 
@@ -60,7 +63,7 @@ SERIES = {"wordle-rl": ("#2a78d6", "full fine-tune"), "wordle-rl-lora": ("#eb683
 # biased upward and not comparable. Its held-out eval ran afterwards with no failures.
 # Structured-thinking models: the reasoning-stripped eval drops earlier turns' thinking from the
 # history, which they never saw in training, so that column is marked and not comparable.
-STRIPPED_NOT_COMPARABLE = {"+ structured-thinking SFT", "+ structured SFT + RL (reweighted)"}
+STRIPPED_NOT_COMPARABLE = {"+ structured-thinking SFT", "+ structured SFT + RL (reweighted)", "+ structured SFT + RL, rerun"}
 # Run 2 scores games differently (outcome = win x speed), so its curve uses the game's own reward.
 GAME_REWARD_KEY = re.compile(r"^train/agg/all/[^/]+/metrics/game_reward/mean$")
 
@@ -73,7 +76,11 @@ def latest_artifacts() -> Path:
 
 
 def run_dir(art: Path, run: str) -> Path:
-    """The newest outputs/<run> across all instance artifact folders (runs span instances)."""
+    """The newest outputs/<run> across all instance artifact folders (runs span instances).
+    A run written as <name>@<instance id> is read from that instance's artifacts only."""
+    if "@" in run:
+        name, inst = run.split("@", 1)
+        return ROOT / "artifacts" / f"wordle-rl-wordle-{inst}" / "outputs" / name
     found = sorted((ROOT / "artifacts").glob(f"wordle-rl-wordle-*/outputs/{run}"), key=lambda p: p.stat().st_mtime)
     return found[-1] if found else art / "outputs" / run
 
@@ -203,7 +210,8 @@ def plot_win(rows: list[dict]) -> Path:
                 textcoords="offset points", ha="left", fontsize=8.5, color=INK2)
     short = {"Qwen3-1.7B (base)": "Base", "+ SFT warmup": "SFT", "+ SFT + RL (full)": "SFT + RL\nfull",
              "+ SFT + RL (LoRA r32)": "SFT + RL\nLoRA r32", "+ SFT + RL (per-turn credit)": "SFT + RL\nper-turn",
-             "+ structured-thinking SFT": "Structured\nSFT", "+ structured SFT + RL (reweighted)": "Structured\nSFT + RL"}
+             "+ structured-thinking SFT": "Structured\nSFT", "+ structured SFT + RL (reweighted)": "Structured\nSFT + RL",
+             "+ structured SFT + RL, rerun": "Structured\nSFT + RL\n(rerun)"}
     ax.set_xticks(list(x), [short.get(r["model"], r["model"]) for r in rows], fontsize=9, color=INK)
     ax.set_ylabel("win rate on 200 held-out games (%)", color=INK2, fontsize=9)
     ax.set_ylim(0, max(100, max(tops) + 15))
@@ -224,8 +232,7 @@ def main() -> None:
         inst = json.loads((ROOT / ".vast" / "instance.json").read_text())
     n_gpus = int(inst["gpu"].split("x")[0]) if inst else 2
 
-    hours = {run: run_hours(run_dir(art, run)) for run in ("wordle-sft", "wordle-rl", "wordle-rl-lora", "wordle-rl-turns",
-                                                       "wordle-sft-cot", "wordle-rl-cot")}
+    hours = {run: run_hours(run_dir(art, run)) for _, _, train_runs in MODELS for run in train_runs}
     rows = []
     for label, eval_run, train_runs in MODELS:
         games = eval_games(run_dir(art, eval_run)) if run_dir(art, eval_run).exists() else []

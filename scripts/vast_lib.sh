@@ -39,6 +39,14 @@ ssh_url() {
   fi
   sed -n 2p "$VAST_DIR/ssh_url"
 }
+# Switch the cached ssh url to vast's ssh proxy (sshN.vast.ai:PORT). Used when the instance's
+# direct port stops answering: on 2026-10-14 it did, the proxy kept working, and the watchdog
+# could not pull and destroy for 6 hours.
+use_proxy_ssh() {
+  local id url; id="$(instance_id)"
+  url="$(vastai show instance "$id" --raw 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print("ssh://root@%s:%s" % (d["ssh_host"], d["ssh_port"]))' 2>/dev/null)"
+  case "$url" in ssh://root@*:[0-9]*) printf '%s\n%s\n' "$id" "$url" > "$VAST_DIR/ssh_url"; echo "$url" ;; *) return 1 ;; esac
+}
 ssh_host() { ssh_url | sed -E 's#ssh://([^@]+@)?([^:]+):([0-9]+).*#\2#'; }
 ssh_port() { ssh_url | sed -E 's#ssh://([^@]+@)?([^:]+):([0-9]+).*#\3#'; }
 

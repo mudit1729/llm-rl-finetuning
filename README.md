@@ -2,7 +2,7 @@
 
 SFT warmup plus RL with [prime-rl](https://github.com/PrimeIntellect-ai/prime-rl), on the verifiers `wordle` taskset. Win rate is measured on 20 games whose secret words are never seen in training.
 
-**Result:** 0% → **45.5%** wins on prime-rl's example eval with structured-thinking SFT plus RL (run 3), up from 15–21% for plain SFT plus RL. Earlier models reach 40.5–42.5% when the game sees only their final answer, so like for like, run 3 is about 3–5 points ahead, within the confidence intervals.
+**Result:** 0% → **41–45.5%** wins on prime-rl's example eval with structured-thinking SFT plus RL (run 3 and a rerun), up from 15–21% for plain SFT plus RL. Earlier models reach 40.5–42.5% when the game sees only their final answer, so like for like the structured runs are level with them. The model now wins about 88% on its 138 training words but about 41% on new ones.
 
 ![Win rate before vs after training](results/plots/win_rate.png)
 
@@ -19,6 +19,7 @@ SFT warmup plus RL with [prime-rl](https://github.com/PrimeIntellect-ai/prime-rl
 | + RL, per-turn credit (run 2) | 17.0% (10–24) | 41.5% (28–56) | 0.45 / 0.64 |
 | Structured-thinking SFT (run 3) | 11.5% (5–20) | 0.5%† | 0.42 / 0.24 |
 | + RL, reweighted per-turn credit (run 3) | **45.5%** (30–61) | 2.5%† | 0.66 / 0.29 |
+| + same RL, rerun on a second machine | 41.0% (28–56) | 5.5%† | 0.66 / 0.33 |
 
 † Not comparable. With the parser on, the eval client sends earlier turns back without their thinking. The structured models were only trained on games that keep it, and without it they stop giving an answer. Training and the example eval both keep it.
 
@@ -44,8 +45,9 @@ Full tables: [results/results.md](results/results.md). One-page summary: [notes/
 8. **Structured thinking helped clue use (run 3).**
    - **SFT data:** 2,560 solver-played games on training words. Each turn's thinking writes down the clue state, spells the candidate out, then checks length, repeats and every clue, in about 90 tokens instead of about 400.
    - **RL:** run 2's per-turn setup, with the clue-violation penalty raised (0.2 → 0.5) and the information-gain bonus cut (0.5 → 0.1).
-   - **Result:** 33% of later guesses fit every earlier clue, against 20–22% for the earlier models.
-9. **Writing the checks isn't doing them.** After SFT alone, the model marks every check ✓, yet only 11% of its later guesses fit the clues; 57% follow a wrong clue summary. A first version of the data without length or repeat checks lost about half its games to invalid moves, mostly wrong-length words.
+   - **Result:** 33% of later guesses fit every earlier clue, against 20–22% for the earlier models (25% in the rerun).
+9. **Run 3 learns its training words.** A rerun with fewer failed training games scored 41.0%, level with the first run. Over its last 10 steps, with no failed games, it won 88% of training-word games against 41% held out, a far wider gap than the earlier models showed. Training games go through prime-rl's rollout path rather than the eval harness, so the two aren't identical measurements.
+10. **Writing the checks isn't doing them.** After SFT alone, the model marks every check ✓, yet only 11% of its later guesses fit the clues; 57% follow a wrong clue summary. A first version of the data without length or repeat checks lost about half its games to invalid moves, mostly wrong-length words.
 
 ## Training schedule
 
@@ -57,10 +59,11 @@ Full tables: [results/results.md](results/results.md). One-page summary: [notes/
 | RL, per-turn credit (run 2) | same | 200 × 128 | 1e-6 | 2.5 h |
 | Structured-thinking SFT (run 3) | 2,560 solver-played games, eval words removed | 40 × 64 | 1e-5 | 11 min |
 | RL, reweighted per-turn credit (run 3) | same seeds | 200 × 128 | 1e-6 | 5.0 h* |
+| Same RL, rerun on a second machine | same seeds | 200 × 128 | 1e-6 | 2.3 h* |
 
 Each RL step uses prime-rl's IPO loss with GRPO advantages: reward minus the mean of the 16 tries at the same word. Runs 2–3 also give each turn its own advantage (`turn_grpo`, [patches/](patches/)). Context is 8,192 tokens per game.
 
-\* Run 3 ran on a slower machine that lost about a quarter of each step's rollouts to inference outages (see below). prime-rl drops failed rollouts, and an outage is more likely to catch a long (usually losing) game, so run 3's training reward is likely biased upward and is left out of the plot. Its held-out eval ran afterwards with no failures.
+\* Both run 3 machines lost rollouts to inference outages (see below): about a quarter of each step's on the first, and 7,073 in total on the second, mostly between steps 60 and 130. prime-rl drops failed rollouts, and an outage is more likely to catch a long (usually losing) game, so run 3's training reward is likely biased upward and is left out of the plot. The held-out evals ran afterwards with no failures.
 
 ## Architecture
 
@@ -81,7 +84,7 @@ The env server runs each game and calls vLLM for every model turn; the orchestra
 | One env worker: 0.87 s per new game stalled the rest | static pool of 16 workers (3.5 min → 70 s per step) |
 | 21 GB checkpoints on a 100 GB disk | delete optimizer state after export |
 | First weight sync hung on GPUs without NVLink | set `NCCL_P2P_DISABLE=0 NCCL_SHM_DISABLE=0` before launch |
-| Container capped at 20.5 CPUs while showing 64: vLLM missed health checks and ~24% of rollouts failed | not fixed; use hosts with ≥ 32 usable cores |
+| Container CPU cap (20.5 and 30.7 CPUs) with one Python process started per game: vLLM missed health checks and rollouts failed | not fixed; lowering the game workers' priority helped briefly. Needs games without a new process each, or fewer workers |
 | Run 3's first SFT data never checked length or repeats | spell each candidate out and check those first |
 
 ## Reproduce
