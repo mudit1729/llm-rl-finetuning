@@ -25,7 +25,7 @@ SFT warmup plus RL with [prime-rl](https://github.com/PrimeIntellect-ai/prime-rl
 
 ![RL training reward](results/plots/train_reward.png)
 
-Full tables: [results/results.md](results/results.md). One-page summary: [notes/REPORT.md](notes/REPORT.md).
+Full tables: [results/results.md](results/results.md). One-page summary: [notes/REPORT.md](notes/REPORT.md). Next steps: [notes/IDEAS.md](notes/IDEAS.md) (top idea: a wider secret-word pool).
 
 ## The task
 

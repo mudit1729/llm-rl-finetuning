@@ -2,6 +2,11 @@
 
 Starting point: 40.5% (full RL) and 42.5% (LoRA) on 18 held-out words, with reasoning stripped.
 
+**Status (2026-10-15).** Ideas 1, 2 and the structured-SFT half of idea 4 have been tried (runs 2 and 3, see
+REPORT.md). The best held-out results are 41–45.5% on the example eval, level with the starting point like for
+like. Run 3 wins about 88% on its 138 training words late in training, so the bottleneck has moved to
+memorizing the answer list. Idea 6 below is now the top idea.
+
 ## What our traces say is losing games
 
 These come from the reasoning-stripped evals of the RL models, 200 games each.
@@ -82,6 +87,8 @@ This targets our 46% of inconsistent guesses directly and should shorten the thi
 - **Mid-game starts:** build training episodes that begin with 0–4 prior guesses already played (by a solver, or as random valid guesses). This was charbull's biggest single gain, and Predibase trains on mid-game states. It gives late-game turns, where constraint use matters, far more training signal.
 - **Better SFT traces:** replace or augment V3-wordle with solver-generated or rejection-sampled games that show short, explicit constraint tracking ("greens: _ _ A _ E; not R, N, C…"). Keep the held-out words excluded.
 
+**Result of run 3 (better SFT traces, plus idea 1 reweighted).** 2,560 solver games whose thinking writes the clue state, spells the candidate out and checks length, repeats and every clue (~90 tokens per turn). The SFT model alone lost only 6.5% of games to invalid moves, but only 11% of its later guesses fit the clues: it writes the checks without doing them. With RL (clue penalty 0.5, information gain 0.1, turn weight 0.3) the example eval reached 45.5%, and 41.0% in a rerun; later guesses fitting every clue rose to 25–33%, from 22–29%. A first version of the data without length or repeat checks lost 48% of games to invalid moves.
+
 ### 5. Recipe knobs (cheap A/Bs in config)
 
 - **Train longer.** Reward was still rising at step 200, and each word has been seen only about 12 times. Try 600–1,000 steps, with a held-out eval every 100 steps. Source: ProRL, https://arxiv.org/abs/2505.24864
@@ -92,7 +99,13 @@ This targets our 46% of inconsistent guesses directly and should shorten the thi
 - **LoRA:** α=32 at rank 8–16, lr 1e-5–1.5e-5, gives the same quality as full fine-tuning for less memory. Source: https://thinkingmachines.ai/blog/lora/
 - **Staleness of up to 8 versions is fine** with importance-weighted losses (AReaL, ScaleRL), so no change is needed.
 
+### 6. A wider secret-word pool (top idea after run 3)
+
+The 156-word pool leaves 138 training answers, each seen dozens of times in RL. Run 3 learned them: about 88% wins on training words against 41–45.5% on held-out words. A custom taskset that draws secrets from thousands of common 5-letter words (the eval words still excluded) makes the answer list unlearnable, so RL can only improve by using the clues. Pair it with clue checks that are lookups (each letter next to its mark, `t:X r:X a:G`, and numbered spelled letters) and with more held-out eval words, since 20 words give intervals of about ±15 points.
+
 ## Suggested order
+
+*As first planned; runs B and the SFT part of C are done (runs 2 and 3).*
 
 1. **Run A (baseline++).** Re-run SFT and keep its export. Then run the diagnostics from idea 0, and LoRA RL for 600 steps with 16 words × 16 tries, the difficulty curriculum and a held-out eval every 100 steps. This shows how far scale alone goes.
 2. **Run B (credit).** Same as run A plus the per-turn reward and advantages (ideas 1 and 2). This is the main bet.
