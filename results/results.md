@@ -10,6 +10,8 @@ never seen in SFT or RL) × 10 rollouts = 200 games, temperature 1.0, 1024 token
 | + SFT + RL (full) | 15.0% (10–20%) | 0.43 | 5.83 | 4.47 | 9.4% | 7.44 |
 | + SFT + RL (LoRA r32) | 21.0% (12–31%) | 0.47 | 6.02 | 4.38 | 11.0% | 9.56 |
 | + SFT + RL (per-turn credit) | 17.0% (10–24%) | 0.45 | 6.96 | 4.32 | 2.4% | 4.94 |
+| + structured-thinking SFT | 11.5% (5–20%) | 0.42 | 6.00 | 4.57 | 4.1% | 0.31 |
+| + structured SFT + RL (reweighted) | 45.5% (30–61%) | 0.66 | 5.62 | 4.36 | 12.3% | 10.31 |
 
 ### Same eval with reasoning stripped (diagnostic)
 
@@ -24,6 +26,12 @@ eval passes the raw text, and the game plays the first bracketed word, often a g
 | + SFT + RL (full) | 40.5% (28–53%) | 0.66 | 5.78 | 4.27 | 22.5% |
 | + SFT + RL (LoRA r32) | 42.5% (30–55%) | 0.65 | 5.53 | 4.16 | 22.8% |
 | + SFT + RL (per-turn credit) | 41.5% (28–56%) | 0.64 | 5.88 | 4.53 | 9.1% |
+| + structured-thinking SFT | 0.5%† (0–2%) | 0.24 | 3.97 | 3.00 | 56.0% |
+| + structured SFT + RL (reweighted) | 2.5%† (0–5%) | 0.29 | 4.09 | 3.20 | 55.4% |
+
+† Not comparable: with the parser on, the eval client sends earlier turns back without their
+thinking; the structured-thinking models were trained only on games that keep it, and without it
+they stop giving an answer. Training and the example eval keep it.
 
 ### Held-out vs training words (diagnostic)
 

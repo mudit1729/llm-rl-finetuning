@@ -25,6 +25,9 @@ results/**/traces.jsonl
 results/**/raw/
 results/local/
 
+# Generated SFT data (scripts/make_cot_data.py; vast_sync pushes it)
+data/
+
 # Pulled-back artifacts from vast.ai instances
 artifacts/
 

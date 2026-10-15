@@ -208,5 +208,89 @@
   ],
   "train_hours": 2.4719501164886686,
   "gpu_hours": 4.943900232977337
+ },
+ {
+  "model": "+ structured-thinking SFT",
+  "eval_run": "wordle-eval-sft-cot",
+  "games": 200,
+  "win_rate": 0.115,
+  "avg_reward": 0.4235,
+  "avg_turns": 6.005,
+  "turns_to_solve": 4.695652173913044,
+  "guesses_to_solve": 4.565217391304348,
+  "format_error_rate": 0.04079933388842631,
+  "format_error_game_rate": 0.205,
+  "invalid_move_rate": 0.285,
+  "invalid_end_rate": 0.065,
+  "truncated_call_rate": 0.0,
+  "errored_games": 0,
+  "distinct_seeds": 20,
+  "parsed": {
+   "games": 200,
+   "win_rate": 0.005,
+   "avg_reward": 0.23650000000000002,
+   "avg_turns": 3.97,
+   "turns_to_solve": 4.0,
+   "guesses_to_solve": 3.0,
+   "format_error_rate": 0.5604534005037783,
+   "format_error_game_rate": 0.995,
+   "invalid_move_rate": 0.995,
+   "invalid_end_rate": 0.945,
+   "truncated_call_rate": 0.012594458438287154,
+   "errored_games": 0,
+   "distinct_seeds": 20,
+   "ci": [
+    0.0,
+    0.015
+   ]
+  },
+  "ci": [
+   0.05,
+   0.205
+  ],
+  "train_hours": 0.15575161900785234,
+  "gpu_hours": 0.3115032380157047
+ },
+ {
+  "model": "+ structured SFT + RL (reweighted)",
+  "eval_run": "wordle-eval-cot",
+  "games": 200,
+  "win_rate": 0.455,
+  "avg_reward": 0.6629999999999999,
+  "avg_turns": 5.625,
+  "turns_to_solve": 4.670329670329671,
+  "guesses_to_solve": 4.362637362637362,
+  "format_error_rate": 0.12266666666666666,
+  "format_error_game_rate": 0.44,
+  "invalid_move_rate": 0.47,
+  "invalid_end_rate": 0.195,
+  "truncated_call_rate": 0.064,
+  "errored_games": 0,
+  "distinct_seeds": 20,
+  "parsed": {
+   "games": 200,
+   "win_rate": 0.025,
+   "avg_reward": 0.29,
+   "avg_turns": 4.095,
+   "turns_to_solve": 3.8,
+   "guesses_to_solve": 3.2,
+   "format_error_rate": 0.5543345543345544,
+   "format_error_game_rate": 0.99,
+   "invalid_move_rate": 0.99,
+   "invalid_end_rate": 0.95,
+   "truncated_call_rate": 0.031746031746031744,
+   "errored_games": 0,
+   "distinct_seeds": 20,
+   "ci": [
+    0.005,
+    0.05
+   ]
+  },
+  "ci": [
+   0.305,
+   0.61
+  ],
+  "train_hours": 5.156424211263657,
+  "gpu_hours": 10.312848422527313
  }
 ]

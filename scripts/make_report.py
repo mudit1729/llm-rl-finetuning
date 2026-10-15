@@ -36,6 +36,8 @@ MODELS = [  # (label, eval run, training runs that produced it)
     ("+ SFT + RL (full)", "wordle-eval-rl", ["wordle-sft", "wordle-rl"]),
     ("+ SFT + RL (LoRA r32)", "wordle-eval-lora", ["wordle-sft", "wordle-rl-lora"]),
     ("+ SFT + RL (per-turn credit)", "wordle-eval-turns", ["wordle-sft", "wordle-rl-turns"]),
+    ("+ structured-thinking SFT", "wordle-eval-sft-cot", ["wordle-sft-cot"]),
+    ("+ structured SFT + RL (reweighted)", "wordle-eval-cot", ["wordle-sft-cot", "wordle-rl-cot"]),
 ]
 SEEN = [  # diagnostic: the same eval on 20 training games (configs/wordle/eval_seen.toml)
     ("+ SFT + RL (full)", "wordle-eval-rl", "wordle-eval-rl-seen"),
@@ -45,6 +47,7 @@ PARSED = {  # diagnostic: eval.toml with vLLM's qwen3 reasoning parser on the se
     "wordle-eval-base": "wordle-eval-base-parsed", "wordle-eval-sft": "wordle-eval-sft-parsed",
     "wordle-eval-rl": "wordle-eval-rl-parsed", "wordle-eval-lora": "wordle-eval-lora-parsed",
     "wordle-eval-turns": "wordle-eval-turns-parsed",
+    "wordle-eval-sft-cot": "wordle-eval-sft-cot-parsed", "wordle-eval-cot": "wordle-eval-cot-parsed",
 }
 TRAIN_KEY = re.compile(r"^train/agg/all/[^/]+/reward/mean$")
 
@@ -52,6 +55,12 @@ TRAIN_KEY = re.compile(r"^train/agg/all/[^/]+/reward/mean$")
 SURFACE, INK, INK2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
 SERIES = {"wordle-rl": ("#2a78d6", "full fine-tune"), "wordle-rl-lora": ("#eb6834", "LoRA r32"),
           "wordle-rl-turns": ("#1baf7a", "per-turn credit")}
+# Run 3 (wordle-rl-cot) is left out: on its host ~24% of rollouts per step failed during inference
+# outages and prime-rl drops failed rollouts, mostly long (losing) games, so its training reward is
+# biased upward and not comparable. Its held-out eval ran afterwards with no failures.
+# Structured-thinking models: the reasoning-stripped eval drops earlier turns' thinking from the
+# history, which they never saw in training, so that column is marked and not comparable.
+STRIPPED_NOT_COMPARABLE = {"+ structured-thinking SFT", "+ structured SFT + RL (reweighted)"}
 # Run 2 scores games differently (outcome = win x speed), so its curve uses the game's own reward.
 GAME_REWARD_KEY = re.compile(r"^train/agg/all/[^/]+/metrics/game_reward/mean$")
 
@@ -165,7 +174,7 @@ def plot_train(art: Path) -> Path | None:
 
 def plot_win(rows: list[dict]) -> Path:
     rows = [r for r in rows if r["games"]]
-    fig, ax = plt.subplots(figsize=(7.5, 4.2), facecolor=SURFACE)
+    fig, ax = plt.subplots(figsize=(9, 4.4), facecolor=SURFACE)
     style(ax)
     groups = [("example eval: raw text to the game", "#2a78d6", lambda r: r)]
     if any(r.get("parsed") for r in rows):
@@ -183,7 +192,8 @@ def plot_win(rows: list[dict]) -> Path:
             tops.append(rate + hi)
             ax.bar(xi, rate, width=width, color=color, edgecolor=SURFACE, linewidth=2, label=label if i == 0 else None)
             ax.errorbar(xi, rate, yerr=[[lo], [hi]], fmt="none", ecolor=INK2, elinewidth=1, capsize=3)
-            ax.annotate(f"{rate:.1f}%", (xi, rate + hi), xytext=(0, 3),
+            mark = "†" if g == 1 and r["model"] in STRIPPED_NOT_COMPARABLE else ""
+            ax.annotate(f"{rate:.1f}%{mark}", (xi, rate + hi), xytext=(0, 3),
                         textcoords="offset points", ha="center", fontsize=9, color=INK)
     if len(groups) > 1:
         ax.legend(frameon=False, fontsize=8.5, labelcolor=INK2, loc="upper right")
@@ -192,7 +202,8 @@ def plot_win(rows: list[dict]) -> Path:
     ax.annotate("prime-rl example, eval words not held out: ~60%", (-0.45, 60), xytext=(0, 4), annotation_clip=False,
                 textcoords="offset points", ha="left", fontsize=8.5, color=INK2)
     short = {"Qwen3-1.7B (base)": "Base", "+ SFT warmup": "SFT", "+ SFT + RL (full)": "SFT + RL\nfull",
-             "+ SFT + RL (LoRA r32)": "SFT + RL\nLoRA r32", "+ SFT + RL (per-turn credit)": "SFT + RL\nper-turn credit"}
+             "+ SFT + RL (LoRA r32)": "SFT + RL\nLoRA r32", "+ SFT + RL (per-turn credit)": "SFT + RL\nper-turn",
+             "+ structured-thinking SFT": "Structured\nSFT", "+ structured SFT + RL (reweighted)": "Structured\nSFT + RL"}
     ax.set_xticks(list(x), [short.get(r["model"], r["model"]) for r in rows], fontsize=9, color=INK)
     ax.set_ylabel("win rate on 200 held-out games (%)", color=INK2, fontsize=9)
     ax.set_ylim(0, max(100, max(tops) + 15))
@@ -213,7 +224,8 @@ def main() -> None:
         inst = json.loads((ROOT / ".vast" / "instance.json").read_text())
     n_gpus = int(inst["gpu"].split("x")[0]) if inst else 2
 
-    hours = {run: run_hours(run_dir(art, run)) for run in ("wordle-sft", "wordle-rl", "wordle-rl-lora", "wordle-rl-turns")}
+    hours = {run: run_hours(run_dir(art, run)) for run in ("wordle-sft", "wordle-rl", "wordle-rl-lora", "wordle-rl-turns",
+                                                       "wordle-sft-cot", "wordle-rl-cot")}
     rows = []
     for label, eval_run, train_runs in MODELS:
         games = eval_games(run_dir(art, eval_run)) if run_dir(art, eval_run).exists() else []
@@ -265,9 +277,14 @@ def main() -> None:
                   "|---|---|---|---|---|---|"]
         for r in prow:
             d = r["parsed"]
-            lines.append(f"| {r['model']} | {pct(d['win_rate'])} ({100 * d['ci'][0]:.0f}–{100 * d['ci'][1]:.0f}%) | "
+            mark = "†" if r["model"] in STRIPPED_NOT_COMPARABLE else ""
+            lines.append(f"| {r['model']} | {pct(d['win_rate'])}{mark} ({100 * d['ci'][0]:.0f}–{100 * d['ci'][1]:.0f}%) | "
                          f"{num(d['avg_reward'])} | {num(d['avg_turns'])} | "
                          f"{num(d['guesses_to_solve']) if d['win_rate'] else 'no wins'} | {pct(d['format_error_rate'])} |")
+        if any(r["model"] in STRIPPED_NOT_COMPARABLE for r in prow):
+            lines += ["", "† Not comparable: with the parser on, the eval client sends earlier turns back without their",
+                      "thinking; the structured-thinking models were trained only on games that keep it, and without it",
+                      "they stop giving an answer. Training and the example eval keep it."]
     if seen_rows:
         lines += ["", "### Held-out vs training words (diagnostic)", "",
                   "Same eval settings on 20 training games (`configs/wordle/eval_seen.toml`), 10 tries each.", "",

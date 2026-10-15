@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Move files between the Mac and the instance (rsync over the instance's SSH port).
 #
-#   scripts/vast_sync.sh push                 # configs/, scripts/, envs/, patches/ -> instance:~/wordle-rl/
+#   scripts/vast_sync.sh push                 # configs/, scripts/, envs/, patches/, data/cot-wordle/ -> instance:~/wordle-rl/
 #   scripts/vast_sync.sh pull                 # results/, logs/, run outputs (no checkpoints) -> artifacts/<label>/
 #   scripts/vast_sync.sh pull --dry-run       # list what a pull would copy, and its total size
 #   scripts/vast_sync.sh pull --checkpoints   # also final exported weights / LoRA adapters (checks Mac disk first)
@@ -30,7 +30,12 @@ case "${1:-}" in
     rsync -az --delete -e "$(rsync_e)" --exclude '__pycache__/' "$ROOT/scripts/" "$(remote):$REMOTE_ROOT/scripts/"
     rsync -az --delete -e "$(rsync_e)" --exclude '__pycache__/' --exclude '*.egg-info/' "$ROOT/envs/" "$(remote):$REMOTE_ROOT/envs/"
     rsync -az --delete -e "$(rsync_e)" "$ROOT/patches/" "$(remote):$REMOTE_ROOT/patches/"
-    info "pushed configs/, scripts/, envs/, patches/ to $(remote):$REMOTE_ROOT"
+    # Run 3's SFT data is generated on the Mac (scripts/make_cot_data.py), not on the instance.
+    if [ -f "$ROOT/data/cot-wordle/train.jsonl" ]; then
+      rssh "mkdir -p $REMOTE_ROOT/data/cot-wordle"
+      rsync -az -e "$(rsync_e)" "$ROOT/data/cot-wordle/" "$(remote):$REMOTE_ROOT/data/cot-wordle/"
+    fi
+    info "pushed configs/, scripts/, envs/, patches/, data/cot-wordle/ to $(remote):$REMOTE_ROOT"
     ;;
   pull)
     if [ "${2:-}" = "--dry-run" ]; then

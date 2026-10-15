@@ -23,8 +23,11 @@ profile_query() {
   case "$1" in
     smoke)  echo "$BASE num_gpus=2 gpu_name in [RTX_4090,RTX_3090] cpu_ram>=48" ;;
     smoke1) echo "$BASE num_gpus=1 gpu_name in [RTX_4090,RTX_3090] cpu_ram>=32" ;;
-    wordle) echo "$BASE num_gpus=2 gpu_ram>=75 gpu_name in [A100_SXM4,A100_PCIE,H100_SXM,H100_PCIE,H100_NVL] cpu_ram>=96" ;;
-    *) die "unknown profile '$1' (smoke|smoke1|wordle)" ;;
+    # Peak GPU memory measured on A100 80GB: full-FT trainer 30.3 GiB (SFT 29.2), LoRA 9.4 GiB,
+    # so 40 GB A100s fit the whole pipeline.
+    wordle) echo "$BASE num_gpus=2 gpu_ram>=38 gpu_name in [A100_SXM4,A100_PCIE] cpu_ram>=64" ;;
+    wordle80) echo "$BASE num_gpus=2 gpu_ram>=75 gpu_name in [A100_SXM4,A100_PCIE,H100_SXM,H100_PCIE,H100_NVL] cpu_ram>=96" ;;
+    *) die "unknown profile '$1' (smoke|smoke1|wordle|wordle80)" ;;
   esac
 }
 

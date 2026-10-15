@@ -1,0 +1,20 @@
+# Run 3 SFT: structured thinking. 2,560 solver-played games on the 138 training words
+# (scripts/make_cot_data.py -> data/cot-wordle/train.jsonl, pushed from the Mac). Every turn
+# writes down the clue state and checks the guess against it in ~75 tokens; guesses are
+# common English words with the 18 eval words removed. One epoch at batch 64.
+# Every game fits in seq_len 1024 (max 973 tokens), same as sft.toml.
+max_steps = 40
+
+[ckpt] # Checkpoint at the end of training
+
+[model]
+name = "PrimeIntellect/Qwen3-1.7B"
+
+[data]
+name = "/root/wordle-rl/data/cot-wordle"
+seq_len = 1024
+batch_size = 64
+micro_batch_size = 1
+
+[optim]
+lr = 1e-5

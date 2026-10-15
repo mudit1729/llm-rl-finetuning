@@ -1,0 +1,37 @@
+{
+ "games": 2560,
+ "lost_and_dropped": 41,
+ "too_long_and_dropped": 13,
+ "vocab_size": 2209,
+ "off_length_words": 4382,
+ "answers": 138,
+ "guesses_mean": 3.72,
+ "guesses_hist": {
+  "1": 0,
+  "2": 189,
+  "3": 924,
+  "4": 961,
+  "5": 397,
+  "6": 89
+ },
+ "held_out_words": [
+  "brass",
+  "brown",
+  "cough",
+  "death",
+  "floor",
+  "grain",
+  "horse",
+  "jewel",
+  "light",
+  "limit",
+  "paper",
+  "print",
+  "rough",
+  "smile",
+  "sound",
+  "spade",
+  "sugar",
+  "twist"
+ ]
+}

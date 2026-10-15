@@ -11,6 +11,10 @@
 #   eval-lora-seen / eval-rl-seen  diagnostic: same eval on 20 TRAINING games (eval_seen.toml)
 #   rl-turns   run 2: full RL with per-turn credit (rl_turns.toml, wordle-turns env, turn_grpo)
 #   eval-turns export run 2 and eval it twice: example eval, and with the reasoning parser on
+#   sft-cot    run 3: SFT on structured-thinking games (sft_cot.toml; data/cot-wordle from the Mac)
+#   eval-sft-cot  export run 3's SFT, drop its optimizer state, eval it (example + parser on)
+#   rl-cot     run 3: per-turn credit reweighted toward clue use (rl_cot.toml) from the CoT SFT
+#   eval-cot   export run 3's RL and eval it (example + parser on)
 #   eval-parsed  diagnostic: eval.toml for all 4 models with vLLM's qwen3 reasoning parser on the
 #                server, so the game sees only the answer (as in training, where prime-rl's renderer
 #                splits the thinking out). The example eval passes <think> text through to the game.
@@ -112,6 +116,40 @@ if want eval-parsed; then
   }
   SERVER_ARGS="--vllm.enable-lora --vllm.max-lora-rank 32 $P" \
     with_server "$(sft_weights)" wordle-infer-lora-parsed -- serve_lora_parsed
+fi
+
+cot_weights() { echo "$(latest_step_dir wordle-sft-cot)/weights"; }
+# eval_both <weights> <name>: the example eval, then the same eval with vLLM's reasoning parser on
+eval_both() {
+  with_server "$1" "wordle-infer-$2" -- eval_run "$1" "wordle-eval-$2"
+  SERVER_ARGS="--vllm.reasoning-parser qwen3" with_server "$1" "wordle-infer-$2-parsed" -- eval_run "$1" "wordle-eval-$2-parsed"
+}
+
+if want sft-cot; then
+  stage "SFT on structured-thinking games (run 3)"
+  [ -f "$HOME/wordle-rl/data/cot-wordle/train.jsonl" ] || {
+    echo "no data/cot-wordle/train.jsonl: run scripts/make_cot_data.py on the Mac (vast_sync push copies it)"; exit 1; }
+  uv run sft @ "$C/sft_cot.toml" --run.name wordle-sft-cot --clean
+fi
+
+if want eval-sft-cot || want rl-cot; then
+  # Export, then drop the 21 GB optimizer state: RL's own checkpoints need the disk.
+  export_hf "$(latest_step_dir wordle-sft-cot)"
+  rm -rf "$(latest_step_dir wordle-sft-cot)/trainer"
+fi
+
+if want eval-sft-cot; then
+  eval_both "$(cot_weights)" sft-cot
+fi
+
+if want rl-cot; then
+  stage "RL, per-turn credit reweighted toward clue use (run 3), from $(cot_weights)"
+  uv run rl @ "$C/rl_cot.toml" --model.name "$(cot_weights)" --run.name wordle-rl-cot --clean
+fi
+
+if want eval-cot; then
+  export_hf "$(latest_step_dir wordle-rl-cot)"
+  eval_both "$(latest_step_dir wordle-rl-cot)/weights" cot
 fi
 
 stage "wordle stages done: $STAGES"

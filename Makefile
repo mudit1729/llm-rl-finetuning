@@ -84,7 +84,7 @@ gpu-down: vast-down     ## Alias: pull results, release the machine
 # ------------------------------------------- Phase 3-4 (remote GPU jobs, in tmux)
 # Each runs scripts/remote_job.sh <step> on the instance inside tmux, logging to
 # ~/wordle-rl/logs/<step>.log. `make attach STEP=<step>` follows a job.
-.PHONY: test rl-turns eval-turns wait smoke split data eval-base sft eval-sft rl eval-rl rl-lora eval-lora attach
+.PHONY: test cot-data run3 rl-turns eval-turns wait smoke split data eval-base sft eval-sft rl eval-rl rl-lora eval-lora attach
 smoke:     ## Phase 3: prime-rl reverse-text example end to end
 	$(call need,scripts/remote_job.sh,Phase 3)
 	./scripts/remote_job.sh start smoke
@@ -120,7 +120,13 @@ rl-turns:  ## Run 2: full RL with per-turn credit (wordle-turns env + turn_grpo)
 eval-turns: ## Run 2: export and eval (example eval + reasoning parser on)
 	$(call need,scripts/remote_job.sh,Phase 4)
 	./scripts/remote_job.sh start eval-turns
-test:      ## Mac: unit + integration tests (shaping, wordle-turns env, turn_grpo patch)
+cot-data:  ## Run 3 (Mac): structured-thinking SFT games -> data/cot-wordle (~30 s)
+	uv run python scripts/make_cot_data.py
+run3:      ## Run 3 on the instance: CoT SFT, eval, reweighted per-turn RL, eval (one job)
+	$(call need,scripts/remote_job.sh,Phase 4)
+	@[ -f data/cot-wordle/train.jsonl ] || { echo "run 'make cot-data' first"; exit 1; }
+	./scripts/remote_job.sh start run3
+test:      ## Mac: unit + integration tests (shaping, wordle-turns env, turn_grpo patch, run 3 data)
 	uv run pytest tests -q
 attach:    ## Tail a remote job's log: make attach STEP=rl
 	$(call need,scripts/remote_job.sh,Phase 3)

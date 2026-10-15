@@ -5,6 +5,11 @@ export PATH="$HOME/.local/bin:$PATH"
 # direct-URL wheels (flash-attn from GitHub) on every call. vast_setup.sh did the sync.
 export UV_NO_SYNC=1
 export PRL_OUTPUT_DIR="$HOME/wordle-rl/outputs"    # every prime-rl run writes to $PRL_OUTPUT_DIR/<run.name>
+# On GPUs without NVLink (e.g. 2x A100 PCIe) prime-rl turns NCCL P2P/SHM off inside each process,
+# but vLLM's worker has already initialized NCCL by then and keeps them on: trainer and inference
+# disagree on transports and the first weight broadcast hangs. Fixing both up front keeps every
+# process on the same transports (NCCL's defaults; 3.5 GB broadcast in 0.26 s on 2x A100 PCIe).
+export NCCL_P2P_DISABLE="${NCCL_P2P_DISABLE:-0}" NCCL_SHM_DISABLE="${NCCL_SHM_DISABLE:-0}"
 LOGS="$HOME/wordle-rl/logs"
 RESULTS="$HOME/wordle-rl/results"
 CONFIGS="$HOME/wordle-rl/configs"
